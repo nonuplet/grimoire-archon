@@ -1,0 +1,29 @@
+archon:
+  backup_dir: ~/Backups
+
+games:
+  foundry: # 任意の名称
+    name: Foundry
+    install_dir: /opt/steam/Foundry
+    run: # optional
+      envs: # optional
+        - FOUNDRY_USERNAME=user # optional
+      command: FoundryDedicatedServer.exe
+    steam: # optional
+      app_id: 2915550
+      platform: windows # optional
+    backup_files: # optional
+      - Mods
+  enshrouded:
+    name: Enshrouded
+    install_dir: /opt/steam/Enshrouded
+    steam:
+      app_id: 2278520
+      platform: windows
+    run: # optional
+      envs: # optional
+      command: FoundryDedicatedServer.exe
+    backup_files:
+      - enshrouded_server.json
+      - savegame
+    server_config: enshrouded_server.json # optional
