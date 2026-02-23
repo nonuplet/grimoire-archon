@@ -29,7 +29,7 @@ func AskYesNo(r io.Reader, question string, defaultYes bool) (bool, error) {
 	if defaultYes {
 		return input == "" || input == "y" || input == "yes", nil
 	}
-	return !(input == "" || input == `n` || input == "no"), nil
+	return input != "" && input != `n` && input != "no", nil
 }
 
 // CopyFileOrDir ファイルまたはディレクトリをコピー
@@ -117,5 +117,19 @@ func Zip(src, dst string) error {
 		return fmt.Errorf("zip圧縮時、ディレクトリの追加に失敗しました: %w", err)
 	}
 
+	return nil
+}
+
+// ClearDirectoryContents ディレクトリ内のすべてのファイルを削除
+func ClearDirectoryContents(path string) error {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return fmt.Errorf("ディレクトリの読み取りに失敗しました: %w", err)
+	}
+	for _, entry := range entries {
+		if err := os.RemoveAll(filepath.Join(path, entry.Name())); err != nil {
+			return fmt.Errorf("ファイルの削除に失敗しました: %w", err)
+		}
+	}
 	return nil
 }

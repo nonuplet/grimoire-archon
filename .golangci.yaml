@@ -167,6 +167,9 @@ linters:
       - linters:
           - lll
         source: "^//go:generate "
+      - linters:
+          - dupl
+        path: cmd/.* # コマンド関連はコードが似がちで引っかかるので
 
 issues:
   max-issues-per-linter: 0
