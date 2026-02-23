@@ -3,7 +3,7 @@ package config
 // Config yaml全体の構造
 type Config struct {
 	Games  map[string]*GameConfig `yaml:"games,omitempty"`
-	Archon ArchonConfig           `yaml:"archon"`
+	Archon *ArchonConfig          `yaml:"archon"`
 }
 
 // ArchonConfig Archonの構成

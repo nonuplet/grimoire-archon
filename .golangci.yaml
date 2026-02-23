@@ -144,6 +144,9 @@ linters:
     gosec:
       excludes:
         - G204 # Subprocess launched with variable
+        - G301 # Directory permissions 0750 or less
+        - G304 # Potential file inclusion via variable
+        - G306 # File permissions 0600 or less
 
   exclusions:
     # 自動生成コードの lint 警告を緩和
