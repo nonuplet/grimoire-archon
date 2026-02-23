@@ -89,7 +89,6 @@ linters:
         - name: error-naming
         - name: increment-decrement
         - name: var-naming
-        - name: package-comments
         - name: range
         - name: receiver-naming
         - name: indent-error-flow
