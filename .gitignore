@@ -89,3 +89,6 @@ Temporary Items
 
 # Build
 archon
+
+# Config file
+.archon.yaml
