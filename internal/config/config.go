@@ -1,10 +1,9 @@
-// Package config コンフィグ用パッケージ
 package config
 
 // Config yaml全体の構造
 type Config struct {
-	Games  map[string]GameConfig `yaml:"games,omitempty"`
-	Archon ArchonConfig          `yaml:"archon"`
+	Games  map[string]*GameConfig `yaml:"games,omitempty"`
+	Archon ArchonConfig           `yaml:"archon"`
 }
 
 // ArchonConfig Archonの構成
@@ -14,12 +13,12 @@ type ArchonConfig struct {
 
 // GameConfig ゲームのコンフィグ
 type GameConfig struct {
-	Run          RunConfig   `yaml:"run,omitempty"`
-	Steam        SteamConfig `yaml:"steam,omitempty"`
-	Name         string      `yaml:"name"`
-	InstallDir   string      `yaml:"install_dir"`
-	ServerConfig string      `yaml:"server_config,omitempty"`
-	BackupFiles  []string    `yaml:"backup_files,omitempty"`
+	Run          *RunConfig   `yaml:"run,omitempty"`
+	Steam        *SteamConfig `yaml:"steam,omitempty"`
+	Name         string       `yaml:"name"`
+	InstallDir   string       `yaml:"install_dir"`
+	ServerConfig string       `yaml:"server_config,omitempty"`
+	BackupFiles  []string     `yaml:"backup_files,omitempty"`
 }
 
 // RunConfig ゲームの実行構成

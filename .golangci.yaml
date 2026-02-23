@@ -141,6 +141,10 @@ linters:
     misspell:
       locale: US
 
+    gosec:
+      excludes:
+        - G204 # Subprocess launched with variable
+
   exclusions:
     # 自動生成コードの lint 警告を緩和
     generated: lax

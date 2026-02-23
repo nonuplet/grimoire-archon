@@ -1,4 +1,3 @@
-// Package cmd コマンド
 package cmd
 
 import (
@@ -58,6 +57,11 @@ func initConfig() {
 
 	if err := yaml.Unmarshal(file, &cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "コンフィグファイルのパースに失敗しました: %s\n", err)
+		os.Exit(1)
+	}
+
+	if cfg.Games == nil {
+		fmt.Fprint(os.Stderr, "ゲーム設定が見つかりません。config.yaml に games セクションを追加してください。\n")
 		os.Exit(1)
 	}
 }
