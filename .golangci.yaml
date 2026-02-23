@@ -1,0 +1,167 @@
+# golangci-lint v2 configuration
+# https://golangci-lint.run/docs/configuration/
+version: "2"
+
+run:
+  # テストファイルも対象にする
+  tests: true
+  timeout: 5m
+
+formatters:
+  enable:
+    - gofumpt       # gofmt より厳格なフォーマッタ
+    - gci           # import 文のグルーピングとソート
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/nonuplet/grimoire-archon)
+      custom-order: true
+
+linters:
+  # デフォルトで有効なもの (govet, errcheck, staticcheck 等) に加えて追加
+  enable:
+    # ── バグ・安全性 ──
+    - gosec          # セキュリティ問題の検出
+    - bodyclose      # HTTP レスポンスの Body 閉じ忘れ
+    - nilerr         # err != nil を確認したのに nil を返すコード
+    - nilnil         # (nil, nil) を返すパターンの検出
+    - errchkjson     # JSON エンコード系関数のエラーチェック
+    - makezero       # make で初期化したスライスへの append 誤用
+    - rowserrcheck   # sql.Rows の Err() チェック忘れ
+    - sqlclosecheck  # sql.Rows / sql.Stmt の Close() 忘れ
+    - noctx          # context なしの HTTP リクエスト送信
+
+    # ── エラーハンドリング ──
+    - errorlint      # Go 1.13 以降の errors.Is/As の正しい使い方
+    - wrapcheck      # 外部パッケージのエラーを wrap しているかチェック
+
+    # ── コードスタイル・一貫性 ──
+    - revive         # golint の後継、柔軟なルール
+    - gocritic       # 多数の Go イディオムチェック
+    - unconvert      # 不要な型変換の検出
+    - unparam        # 使われていない関数パラメータ
+    - misspell       # コメント/文字列のスペルミス
+    - predeclared    # 予約語のシャドーイング検出
+    - thelper        # テストヘルパー関数の t.Helper() 漏れ
+    - usestdlibvars  # 標準ライブラリの定数を使うべき箇所の検出
+    - copyloopvar    # ループ変数のコピー忘れ (Go 1.22 以降はデフォルトで安全だが念のため)
+
+    # ── 複雑度・保守性 ──
+    - gocyclo        # サイクロマティック複雑度
+    - cyclop         # 関数の複雑度 (gocyclo より柔軟)
+    - nestif         # ネストの深さ制限
+    - maintidx       # 保守性インデックス
+    - funlen         # 関数の行数制限
+    - lll            # 1 行の最大文字数
+    - dupl           # 重複コードの検出
+
+    # ── import / 依存 ──
+    - depguard       # 許可 / 禁止パッケージの制御
+
+    # ── その他 ──
+    - goconst        # マジックナンバー/マジックストリングの検出
+    - exhaustive     # switch 文の網羅性チェック (enum)
+    - prealloc       # スライスの事前確保推奨
+    - whitespace     # 不要な空行の検出
+    - dogsled        # 多すぎるブランク識別子 ( _, _, _ )
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+
+    govet:
+      enable-all: true
+
+    revive:
+      severity: warning
+      rules:
+        - name: exported
+          arguments:
+            - "checkPrivateReceivers"
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: increment-decrement
+        - name: var-naming
+        - name: package-comments
+        - name: range
+        - name: receiver-naming
+        - name: indent-error-flow
+        - name: superfluous-else
+        - name: unreachable-code
+        - name: redefines-builtin-id
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+        - opinionated
+
+    gocyclo:
+      min-complexity: 15
+
+    cyclop:
+      max-complexity: 15
+
+    nestif:
+      min-complexity: 4
+
+    funlen:
+      lines: 80
+      statements: 50
+
+    lll:
+      line-length: 140
+
+    dupl:
+      threshold: 100
+
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+
+    depguard:
+      rules:
+        main:
+          deny:
+            - pkg: "io/ioutil"
+              desc: "io/ioutil は Go 1.16 で非推奨。io や os パッケージを使ってください。"
+            - pkg: "log"
+              desc: "標準 log パッケージではなく、構造化ロガー (slog 等) を使ってください。"
+
+    exhaustive:
+      default-signifies-exhaustive: true
+
+    misspell:
+      locale: US
+
+  exclusions:
+    # 自動生成コードの lint 警告を緩和
+    generated: lax
+    rules:
+      # テストファイルでは一部ルールを緩和
+      - linters:
+          - dupl
+          - funlen
+          - gocyclo
+          - cyclop
+          - maintidx
+          - errcheck
+          - gosec
+          - wrapcheck
+        path: _test\.go
+      # cobra が生成する main.go / root.go は長くなりがち
+      - linters:
+          - lll
+        source: "^//go:generate "
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
