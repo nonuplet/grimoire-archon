@@ -1,0 +1,16 @@
+version: "3"
+
+tasks:
+  build:
+    cmds:
+      - go build -o ./archon main.go
+  run:
+    cmds:
+      - task: build
+      - ./archon {{.CLI_ARGS}}
+  format:
+    cmds:
+      - golangci-lint fmt
+  lint:
+    cmds:
+      - golangci-lint run
