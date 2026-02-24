@@ -8,6 +8,15 @@ import (
 
 // ZipDir はdirの内容をzipFilePathに圧縮します。
 func ZipDir(dir, zipFilePath string) error {
+	dir, err := GetAbsolutePath(dir)
+	if err != nil {
+		return fmt.Errorf("ディレクトリパスの取得: %w", err)
+	}
+	zipFilePath, err = GetAbsolutePath(zipFilePath)
+	if err != nil {
+		return fmt.Errorf("zipファイルパスの取得: %w", err)
+	}
+
 	f, err := os.Create(zipFilePath)
 	if err != nil {
 		return fmt.Errorf("zipファイル %s の作成に失敗しました: %w", zipFilePath, err)

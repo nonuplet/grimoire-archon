@@ -26,7 +26,7 @@ var updateCmd = &cobra.Command{
 			return fmt.Errorf("%s は設定されていません。コンフィグを確認してください", name)
 		}
 
-		fmt.Printf("%s　を更新中...\n", name)
+		fmt.Printf("%s を更新中...\n", name)
 
 		if err := updateUsecase.Execute(ctx, game); err != nil {
 			return fmt.Errorf("%s のアップデートに失敗しました : %w", name, err)

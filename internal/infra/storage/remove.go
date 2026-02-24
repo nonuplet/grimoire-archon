@@ -8,6 +8,11 @@ import (
 
 // ClearDirectoryContents ディレクトリ内のすべてのファイルを削除
 func ClearDirectoryContents(path string) error {
+	path, err := GetAbsolutePath(path)
+	if err != nil {
+		return fmt.Errorf("絶対パスの取得: %w", err)
+	}
+
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		return fmt.Errorf("ディレクトリの読み取りに失敗しました: %w", err)
@@ -16,6 +21,19 @@ func ClearDirectoryContents(path string) error {
 		if err := os.RemoveAll(filepath.Join(path, entry.Name())); err != nil {
 			return fmt.Errorf("ファイルの削除に失敗しました: %w", err)
 		}
+	}
+	return nil
+}
+
+// RemoveAll は指定されたパスを削除します。
+func RemoveAll(path string) error {
+	path, err := GetAbsolutePath(path)
+	if err != nil {
+		return fmt.Errorf("%s のパス取得に失敗しました: %w", path, err)
+	}
+
+	if err := os.RemoveAll(path); err != nil {
+		return fmt.Errorf("%s の削除に失敗しました: %w", path, err)
 	}
 	return nil
 }

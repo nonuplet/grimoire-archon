@@ -2,10 +2,11 @@ package snapshot
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/goccy/go-yaml"
+
+	"github.com/nonuplet/grimoire-archon/internal/infra/storage"
 )
 
 // MetaVersion はメタデータスキーマのバージョンです。
@@ -52,7 +53,7 @@ func (m *Metadata) Save(path string) error {
 		return fmt.Errorf("metadata.yamlのマーシャリングに失敗しました: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := storage.WriteFile(path, data, 0o644); err != nil {
 		return fmt.Errorf("metadata.yamlの書き込みに失敗しました: %w", err)
 	}
 

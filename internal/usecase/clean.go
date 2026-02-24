@@ -102,7 +102,7 @@ func (u *CleanUsecase) checkBackup(archonCfg *config.ArchonConfig, gameCfg *conf
 	backupPath := filepath.Join(archonCfg.BackupDir, gameCfg.Name)
 
 	// バックアップディレクトリをチェック
-	if _, err := os.Stat(backupPath); os.IsNotExist(err) {
+	if _, err := storage.GetInfo(backupPath); os.IsNotExist(err) {
 		ok, err := askAndBackup(archonCfg, gameCfg, fmt.Sprintf("バックアップ先 '%s' が存在しません。バックアップしますか？", backupPath))
 		if err != nil {
 			return -1, fmt.Errorf("バックアップに失敗しました: %w", err)
@@ -173,7 +173,7 @@ func askAndBackup(archonCfg *config.ArchonConfig, gameCfg *config.GameConfig, ms
 
 // checkBackupZip 指定されたディレクトリ内に、24時間以内に作成されたバックアップZIPが存在するか確認
 func checkBackupZip(backupPath, gameName string) (bool, error) {
-	files, err := os.ReadDir(backupPath)
+	files, err := storage.ReadDir(backupPath)
 	if err != nil {
 		return false, fmt.Errorf("ディレクトリの読み込みに失敗しました: %w", err)
 	}

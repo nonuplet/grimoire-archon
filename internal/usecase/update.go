@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/nonuplet/grimoire-archon/internal/config"
+	"github.com/nonuplet/grimoire-archon/internal/infra/storage"
 )
 
 // UpdateUsecase updateのユースケース
@@ -27,9 +28,9 @@ func (u *UpdateUsecase) Execute(ctx context.Context, gameCfg *config.GameConfig)
 	}
 
 	// gameCfg.InstallDir がなかった場合ディレクトリを作成
-	if _, err := os.Stat(gameCfg.InstallDir); os.IsNotExist(err) {
+	if _, err := storage.GetInfo(gameCfg.InstallDir); os.IsNotExist(err) {
 		fmt.Printf("インストール先のディレクトリ %s を作成しています...\n", gameCfg.InstallDir)
-		if dirErr := os.MkdirAll(gameCfg.InstallDir, 0o750); dirErr != nil {
+		if dirErr := storage.MkdirAll(gameCfg.InstallDir, 0o750); dirErr != nil {
 			return fmt.Errorf("インストールディレクトリの作成に失敗しました: %w", dirErr)
 		}
 	} else if err != nil {

@@ -10,6 +10,16 @@ import (
 
 // CopyFileOrDir ファイルまたはディレクトリをコピー
 func CopyFileOrDir(src, dst string) error {
+	// 絶対パスに変換
+	src, err := GetAbsolutePath(src)
+	if err != nil {
+		return fmt.Errorf("コピー元パスの取得: %w", err)
+	}
+	dst, err = GetAbsolutePath(dst)
+	if err != nil {
+		return fmt.Errorf("コピー先パスの取得: %w", err)
+	}
+
 	info, err := os.Stat(src)
 	if err != nil {
 		return fmt.Errorf("コピー元 %s が取得できません", src)

@@ -65,7 +65,7 @@ func (u *BackupUsecase) checkPreBackup(archonCfg *config.ArchonConfig, gameCfg *
 func (u *BackupUsecase) checkAndCreateSnapshotDir(archonCfg *config.ArchonConfig, gameCfg *config.GameConfig) error {
 	snapshotPath := filepath.Join(archonCfg.BackupDir, gameCfg.Name)
 
-	if _, err := os.Stat(snapshotPath); os.IsNotExist(err) {
+	if _, err := storage.GetInfo(snapshotPath); os.IsNotExist(err) {
 		// Ask
 		ok, askErr := cli.AskYesNo(os.Stdin, fmt.Sprintf("バックアップ用ディレクトリ '%s' が存在しません。作成しますか?", snapshotPath), true)
 		if askErr != nil {
@@ -77,7 +77,7 @@ func (u *BackupUsecase) checkAndCreateSnapshotDir(archonCfg *config.ArchonConfig
 		}
 
 		// 処理
-		if err := os.MkdirAll(snapshotPath, 0o755); err != nil {
+		if err := storage.MkdirAll(snapshotPath, 0o755); err != nil {
 			return fmt.Errorf("バックアップ用ディレクトリの作成に失敗しました: %w", err)
 		}
 
@@ -95,13 +95,13 @@ func (u *BackupUsecase) createSnapshot(archonCfg *config.ArchonConfig, gameCfg *
 	// tmpフォルダを作成 作業が終わったら成功しても失敗しても消す
 	tmpDir := filepath.Join(snapshotPath, "tmp")
 	defer func(path string) {
-		err := os.RemoveAll(path)
+		err := storage.RemoveAll(path)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "一時ディレクトリの削除に失敗しました: %v", err)
 		}
 	}(tmpDir)
 
-	result, err := snapshot.CopyToTmp(tmpDir, archonCfg, gameCfg)
+	entries, err := snapshot.CopyToTmp(tmpDir, archonCfg, gameCfg)
 	if err != nil {
 		return fmt.Errorf("バックアップファイルのコピーに失敗しました: %w", err)
 	}
@@ -113,7 +113,7 @@ func (u *BackupUsecase) createSnapshot(archonCfg *config.ArchonConfig, gameCfg *
 		CreatedAt:   time.Now(),
 		ToolVersion: app.Version,
 		Os:          runtime.GOOS,
-		Files:       result.Entries,
+		Files:       entries,
 	}
 
 	if err := meta.Save(filepath.Join(snapshotPath, "metadata.yaml")); err != nil {
@@ -124,7 +124,7 @@ func (u *BackupUsecase) createSnapshot(archonCfg *config.ArchonConfig, gameCfg *
 	timestamp := storage.GetTimestamp()
 	zipPath := filepath.Join(snapshotPath, fmt.Sprintf("%s_%s.zip", gameCfg.Name, timestamp))
 	if err := storage.ZipDir(tmpDir, zipPath); err != nil {
-		return fmt.Errorf("バックアップの圧縮二失敗しました: %w", err)
+		return fmt.Errorf("バックアップの圧縮に失敗しました: %w", err)
 	}
 
 	return nil

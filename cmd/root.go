@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/nonuplet/grimoire-archon/internal/config"
+	"github.com/nonuplet/grimoire-archon/internal/infra/storage"
 )
 
 var (
@@ -48,8 +49,7 @@ func initConfig() {
 	}
 
 	// 読み込み処理
-	// #nosec G304
-	file, err := os.ReadFile(targetPath)
+	file, err := storage.ReadFile(targetPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "コンフィグファイルの読み込みに失敗しました: %s\n", err)
 		os.Exit(1)
@@ -69,7 +69,7 @@ func initConfig() {
 func getConfigPath() string {
 	// 1. フラグで指定された場合
 	if cfgPath != "" {
-		if _, err := os.Stat(cfgPath); err != nil {
+		if _, err := storage.GetInfo(cfgPath); err != nil {
 			fmt.Fprintf(os.Stderr, "指定されたコンフィグファイルが見つかりません: %s\n", cfgPath)
 			os.Exit(1)
 		}
@@ -78,7 +78,7 @@ func getConfigPath() string {
 
 	// 2. カレントディレクトリ
 	cwdPath := "./.archon.yaml"
-	if _, err := os.Stat(cwdPath); err == nil {
+	if _, err := storage.GetInfo(cwdPath); err == nil {
 		return cwdPath
 	}
 
@@ -89,7 +89,7 @@ func getConfigPath() string {
 		os.Exit(1)
 	}
 	homePath := filepath.Join(home, "archon.yaml")
-	if _, err := os.Stat(homePath); err == nil {
+	if _, err := storage.GetInfo(homePath); err == nil {
 		return homePath
 	}
 

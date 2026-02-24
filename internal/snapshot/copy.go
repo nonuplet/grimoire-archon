@@ -10,17 +10,12 @@ import (
 	"github.com/nonuplet/grimoire-archon/internal/infra/storage"
 )
 
-// CopyResult はバックアップコピーの結果を保持します。
-type CopyResult struct {
-	Entries []FileEntry
-}
-
 // CopyToTmp は gameConfig で指定されたバックアップ対象ファイルを tmpDir にコピーします。
 // コピーしたファイルの FileEntry 一覧を返します。
-func CopyToTmp(tmpDir string, archonCfg *config.ArchonConfig, gameCfg *config.GameConfig) (*CopyResult, error) {
+func CopyToTmp(tmpDir string, archonCfg *config.ArchonConfig, gameCfg *config.GameConfig) ([]FileEntry, error) {
 	bt := gameCfg.BackupTargets
 	if bt.IsEmpty() {
-		return &CopyResult{}, nil
+		return nil, nil
 	}
 
 	type targetSpec struct {
@@ -77,50 +72,43 @@ func CopyToTmp(tmpDir string, archonCfg *config.ArchonConfig, gameCfg *config.Ga
 	// 各タイプ(install_dir, user_home, ...)ごとに処理
 	for _, spec := range specs {
 		for _, pattern := range spec.patterns {
-			// タイプごとのベースと合わせてパスを構築
+			// タイプごとのベースと合わせてsrc/dstパスを構築
 			src, err := spec.resolvePath(pattern)
 			if err != nil {
 				return nil, fmt.Errorf("ベースパスの解決に失敗しました (type=%s, pattern=%s): %w", spec.baseType, pattern, err)
 			}
+			dst := filepath.Join(tmpDir, string(spec.baseType), pattern)
 
 			// コピーする
-			dst := filepath.Join(tmpDir, string(spec.baseType), pattern)
-			newEntries, err := copyEntries(src, dst, spec.baseType, pattern)
+			newEntry, err := copyEntries(src, dst, spec.baseType, pattern)
 			if err != nil {
 				return nil, err
 			}
-			entries = append(entries, newEntries...)
+			entries = append(entries, newEntry)
 		}
 	}
 
-	return &CopyResult{Entries: entries}, nil
+	return entries, nil
 }
 
 // copyEntries は src を dst へコピーし、FileEntry 一覧を返します。
 // ファイル/ディレクトリの判定は util.CopyFileOrDir に委譲します。
-func copyEntries(src, dst string, baseType BaseType, originalPath string) ([]FileEntry, error) {
-	info, err := os.Stat(src)
+func copyEntries(src, dst string, baseType BaseType, originalPath string) (FileEntry, error) {
+	// コピー元のinfo取得
+	info, err := storage.GetInfo(src)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("コピー元のファイル/ディレクトリが存在しません (%s): %w", src, err)
-		}
-		return nil, fmt.Errorf("stat に失敗しました (%s): %w", src, err)
+		return FileEntry{}, fmt.Errorf("コピー元のファイル/ディレクトリの情報取得に失敗しました: %w", err)
 	}
 
-	// ファイルの場合は dst/<basename> をコピー先ファイルパスとする
-	copyDst := dst
-	if !info.IsDir() {
-		copyDst = filepath.Join(dst, filepath.Base(src))
+	// コピー
+	if err := storage.CopyFileOrDir(src, dst); err != nil {
+		return FileEntry{}, fmt.Errorf("コピーに失敗しました: %w", err)
 	}
 
-	if err := storage.CopyFileOrDir(src, copyDst); err != nil {
-		return nil, fmt.Errorf("コピーに失敗しました: %w", err)
-	}
-
-	return []FileEntry{{
+	return FileEntry{
 		ArchivePath:  filepath.ToSlash(filepath.Join(string(baseType), originalPath)),
 		BaseType:     baseType,
 		OriginalPath: originalPath,
 		ModifiedAt:   info.ModTime().UTC().Truncate(time.Second),
-	}}, nil
+	}, nil
 }
