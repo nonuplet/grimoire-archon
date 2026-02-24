@@ -68,7 +68,7 @@ func initConfig() {
 
 func getConfigPath() string {
 	// 1. フラグで指定された場合
-	if cfgPath == "" {
+	if cfgPath != "" {
 		if _, err := os.Stat(cfgPath); err != nil {
 			fmt.Fprintf(os.Stderr, "指定されたコンフィグファイルが見つかりません: %s\n", cfgPath)
 			os.Exit(1)
@@ -77,7 +77,7 @@ func getConfigPath() string {
 	}
 
 	// 2. カレントディレクトリ
-	cwdPath := "./archon.yaml"
+	cwdPath := "./.archon.yaml"
 	if _, err := os.Stat(cwdPath); err == nil {
 		return cwdPath
 	}

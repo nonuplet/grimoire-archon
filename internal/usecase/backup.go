@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"time"
 
-	"github.com/goccy/go-yaml"
-
+	"github.com/nonuplet/grimoire-archon/internal/app"
 	"github.com/nonuplet/grimoire-archon/internal/config"
-	"github.com/nonuplet/grimoire-archon/pkg"
+	"github.com/nonuplet/grimoire-archon/internal/infra/cli"
+	"github.com/nonuplet/grimoire-archon/internal/infra/storage"
+	"github.com/nonuplet/grimoire-archon/internal/snapshot"
 )
 
 // BackupUsecase backupのユースケース
@@ -27,11 +30,11 @@ func (u *BackupUsecase) Execute(archonCfg *config.ArchonConfig, gameCfg *config.
 	}
 
 	// バックアップディレクトリの存在確認と作成
-	if err := u.checkAndCreateBackupDir(archonCfg, gameCfg); err != nil {
+	if err := u.checkAndCreateSnapshotDir(archonCfg, gameCfg); err != nil {
 		return err
 	}
 
-	if err := u.startBackup(archonCfg, gameCfg); err != nil {
+	if err := u.createSnapshot(archonCfg, gameCfg); err != nil {
 		return err
 	}
 
@@ -44,69 +47,53 @@ func (u *BackupUsecase) checkPreBackup(archonCfg *config.ArchonConfig, gameCfg *
 		return fmt.Errorf("archonのコンフィグが定義されていません。")
 	}
 	if archonCfg.BackupDir == "" {
-		return fmt.Errorf("バックアップディレクトリが設定されていません。")
+		return fmt.Errorf("バックアップ先が設定されていません。")
 	}
 	if gameCfg.InstallDir == "" {
-		return fmt.Errorf("インストールディレクトリが設定されていません。")
-	}
-	if len(gameCfg.BackupFiles) == 0 {
-		return fmt.Errorf("バックアップ対象が指定されていません。")
+		return fmt.Errorf("%s にインストール先が設定されていません。", gameCfg.Name)
 	}
 
-	// バックアップ対象のファイル・ディレクトリの存在確認
-	for _, backupFile := range gameCfg.BackupFiles {
-		targetPath := u.getBackupTargetPath(gameCfg, backupFile)
-		if _, err := os.Stat(targetPath); os.IsNotExist(err) {
-			return fmt.Errorf("バックアップ対象 '%s' が存在しないか、参照できません", targetPath)
-		}
+	// バックアップ指定したファイルの数を確認
+	if gameCfg.BackupTargets.IsEmpty() {
+		return fmt.Errorf("%s にバックアップの対象が指定されていません。", gameCfg.Name)
 	}
 
 	return nil
 }
 
-// checkAndCreateBackupDir バックアップディレクトリの存在確認と作成
-func (u *BackupUsecase) checkAndCreateBackupDir(archonCfg *config.ArchonConfig, gameCfg *config.GameConfig) error {
-	backupPath := filepath.Join(archonCfg.BackupDir, gameCfg.Name)
+// checkAndCreateSnapshotDir バックアップ先ディレクトリの存在確認と作成
+func (u *BackupUsecase) checkAndCreateSnapshotDir(archonCfg *config.ArchonConfig, gameCfg *config.GameConfig) error {
+	snapshotPath := filepath.Join(archonCfg.BackupDir, gameCfg.Name)
 
-	if _, err := os.Stat(backupPath); os.IsNotExist(err) {
+	if _, err := os.Stat(snapshotPath); os.IsNotExist(err) {
 		// Ask
-		ok, askErr := pkg.AskYesNo(os.Stdin, fmt.Sprintf("バックアップディレクトリ '%s' が存在しません。作成しますか?", backupPath), true)
+		ok, askErr := cli.AskYesNo(os.Stdin, fmt.Sprintf("バックアップ用ディレクトリ '%s' が存在しません。作成しますか?", snapshotPath), true)
 		if askErr != nil {
-			return fmt.Errorf("バックアップディレクトリの作成確認に失敗しました: %w", askErr)
+			return fmt.Errorf("バックアップ用ディレクトリの作成確認に失敗しました: %w", askErr)
 		}
 
 		if !ok {
-			return fmt.Errorf("バックアップディレクトリの作成がキャンセルされました。")
+			return fmt.Errorf("バックアップ用ディレクトリの作成がキャンセルされました。")
 		}
 
 		// 処理
-		if err := os.MkdirAll(backupPath, 0o755); err != nil {
-			return fmt.Errorf("バックアップディレクトリの作成に失敗しました: %w", err)
+		if err := os.MkdirAll(snapshotPath, 0o755); err != nil {
+			return fmt.Errorf("バックアップ用ディレクトリの作成に失敗しました: %w", err)
 		}
 
-		fmt.Printf("バックアップディレクトリ '%s' を作成しました。\n", backupPath)
+		fmt.Printf("バックアップ用ディレクトリ '%s' を作成しました。\n", snapshotPath)
 	}
 
 	return nil
 }
 
-func (u *BackupUsecase) getBackupTargetPath(gameCfg *config.GameConfig, targetFile string) string {
-	// 絶対パスで指定されたとき
-	if filepath.IsAbs(targetFile) {
-		return targetFile
-	}
-
-	// 相対パスの場合はInstallDir以下を見る
-	return filepath.Join(gameCfg.InstallDir, targetFile)
-}
-
-// startBackup バックアップ処理の実行
-func (u *BackupUsecase) startBackup(archonCfg *config.ArchonConfig, gameCfg *config.GameConfig) error {
+// createSnapshot バックアップ処理の実行
+func (u *BackupUsecase) createSnapshot(archonCfg *config.ArchonConfig, gameCfg *config.GameConfig) error {
 	// バックアップ先パスの設定
-	backupPath := filepath.Join(archonCfg.BackupDir, gameCfg.Name)
+	snapshotPath := filepath.Join(archonCfg.BackupDir, gameCfg.Name)
 
-	// tmpフォルダは必ず消す
-	tmpDir := filepath.Join(backupPath, "tmp")
+	// tmpフォルダを作成 作業が終わったら成功しても失敗しても消す
+	tmpDir := filepath.Join(snapshotPath, "tmp")
 	defer func(path string) {
 		err := os.RemoveAll(path)
 		if err != nil {
@@ -114,68 +101,30 @@ func (u *BackupUsecase) startBackup(archonCfg *config.ArchonConfig, gameCfg *con
 		}
 	}(tmpDir)
 
-	// 1. config.BackupData を構築し、/tmp/内のディレクトリにコピーするときの対応関係を作る
-	backupData := &config.BackupData{
-		Files: make([]config.BackupConfig, 0),
-	}
-	usedNames := make(map[string]int) // コピー先重複チェック
-
-	for _, backupFile := range gameCfg.BackupFiles {
-		originalPath := u.getBackupTargetPath(gameCfg, backupFile)
-		baseName := filepath.Base(originalPath)
-
-		// 2. コピー時にファイル名/ディレクトリ名が被ったら バックアップ時ファイル名を _1, _2, ...　とリネームする
-		backupName := baseName
-		if count, exists := usedNames[baseName]; exists {
-			usedNames[baseName] = count + 1
-			ext := filepath.Ext(baseName)
-			nameWithoutExt := baseName[:len(baseName)-len(ext)]
-			backupName = fmt.Sprintf("%s_%d%s", nameWithoutExt, count, ext)
-		} else {
-			usedNames[baseName] = 1
-		}
-
-		backupData.Files = append(backupData.Files, config.BackupConfig{
-			OriginalPath: originalPath,
-			BackupPath:   backupName,
-		})
-	}
-
-	// 3. config.BackupData をもとに <backupPath>/tmp/ にコピー処理
-	if err := os.MkdirAll(tmpDir, 0o755); err != nil {
-		return fmt.Errorf("一時ディレクトリの作成に失敗しました: %w", err)
-	}
-
-	for _, backupCfg := range backupData.Files {
-		dst := filepath.Join(tmpDir, backupCfg.BackupPath)
-		if err := pkg.CopyFileOrDir(backupCfg.OriginalPath, dst); err != nil {
-			return fmt.Errorf("バックアップのコピーに失敗しました (%s -> %s): %w", backupCfg.OriginalPath, backupCfg.BackupPath, err)
-		}
-	}
-
-	// 4. backupData をyamlにして tmp 内に一緒に保存する
-	yamlData, err := yaml.Marshal(backupData)
+	result, err := snapshot.CopyToTmp(tmpDir, archonCfg, gameCfg)
 	if err != nil {
-		return fmt.Errorf("バックアップメタデータのYAML変換に失敗しました: %w", err)
+		return fmt.Errorf("バックアップファイルのコピーに失敗しました: %w", err)
 	}
 
-	metadataPath := filepath.Join(tmpDir, "metadata.yaml")
-	// #nosec G306
-	if err := os.WriteFile(metadataPath, yamlData, 0o755); err != nil {
-		return fmt.Errorf("バックアップメタデータの保存に失敗しました: %w", err)
+	// metadata.yamlの構築と保存
+	meta := &snapshot.Metadata{
+		Version:     snapshot.MetaVersion,
+		Name:        gameCfg.Name,
+		CreatedAt:   time.Now(),
+		ToolVersion: app.Version,
+		Os:          runtime.GOOS,
+		Files:       result.Entries,
 	}
 
-	// 5. <backupPath>/tmp/ を圧縮し、<backupPath>/<gamename>_<timestamp>.zip に保存する
-	timestamp := pkg.GetTimestamp()
-	zipPath := filepath.Join(backupPath, fmt.Sprintf("%s_%s.zip", gameCfg.Name, timestamp))
-
-	if err := pkg.Zip(tmpDir, zipPath); err != nil {
-		return fmt.Errorf("ディレクトリの圧縮に失敗しました: %w", err)
+	if err := meta.Save(filepath.Join(snapshotPath, "metadata.yaml")); err != nil {
+		return fmt.Errorf("metadata.yamlの保存に失敗しました: %w", err)
 	}
 
-	// 一時ディレクトリの削除
-	if err := os.RemoveAll(tmpDir); err != nil {
-		return fmt.Errorf("一時ディレクトリの削除に失敗しました: %w", err)
+	// zipにする
+	timestamp := storage.GetTimestamp()
+	zipPath := filepath.Join(snapshotPath, fmt.Sprintf("%s_%s.zip", gameCfg.Name, timestamp))
+	if err := storage.ZipDir(tmpDir, zipPath); err != nil {
+		return fmt.Errorf("バックアップの圧縮二失敗しました: %w", err)
 	}
 
 	return nil

@@ -26,7 +26,7 @@ var backupCmd = &cobra.Command{
 			return fmt.Errorf("%s は設定されていません。コンフィグを確認してください", name)
 		}
 
-		fmt.Printf("%s　のバックアップを取得します...\n", name)
+		fmt.Printf("%s のバックアップを取得します...\n", name)
 
 		if err := backupUsecase.Execute(cfg.Archon, game); err != nil {
 			return fmt.Errorf("%s のバックアップに失敗しました : %w", name, err)

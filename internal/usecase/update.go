@@ -44,13 +44,16 @@ func (u *UpdateUsecase) Execute(ctx context.Context, gameCfg *config.GameConfig)
 
 // checkPreUpdate アップデート実行前のチェック
 func (u *UpdateUsecase) checkPreUpdate(gameCfg *config.GameConfig) error {
+	if err := u.steamCmd.Check(); err != nil {
+		return fmt.Errorf("アップデートに失敗しました: %w", err)
+	}
 	if gameCfg.InstallDir == "" {
 		return fmt.Errorf("インストールディレクトリが設定されていません")
 	}
 	if gameCfg.Steam == nil {
 		return fmt.Errorf("steam設定が見つかりません")
 	}
-	if gameCfg.Steam.AppID == 0 {
+	if gameCfg.Steam.AppID == "" {
 		return fmt.Errorf("steamのappIDが設定されていません")
 	}
 

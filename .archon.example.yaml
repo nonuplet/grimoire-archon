@@ -12,8 +12,13 @@ games:
     steam: # optional
       app_id: 2915550
       platform: windows # optional
-    backup_files: # optional
-      - Mods
+    backup_targets: # optional
+      install_dir:
+        - Mods
+        - app.cfg
+      appdata_locallow:
+        - "Channel 3 Entertainment/FoundryDedicatedServer/save"
+
   enshrouded:
     name: Enshrouded
     install_dir: /opt/steam/Enshrouded
@@ -23,7 +28,8 @@ games:
     run: # optional
       envs: # optional
       command: FoundryDedicatedServer.exe
-    backup_files:
-      - enshrouded_server.json
-      - savegame
+    backup_targets:
+      install_dir:
+        - enshrouded_server.json
+        - savegame
     server_config: enshrouded_server.json # optional

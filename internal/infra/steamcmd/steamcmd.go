@@ -1,4 +1,4 @@
-package infra
+package steamcmd
 
 import (
 	"context"
@@ -10,11 +10,18 @@ import (
 // SteamCmd steamcmdの操作
 type SteamCmd struct{}
 
-// Update 対象アプリのインストール/アップデート
-func (s *SteamCmd) Update(ctx context.Context, appID int, installDir, platform string) error {
-	// steamcmd コマンドのチェック
+// Check steamcmdコマンドの存在確認
+func (s *SteamCmd) Check() error {
 	if _, err := exec.LookPath("steamcmd"); err != nil {
 		return fmt.Errorf("steamcmdコマンドが見つかりません: %w", err)
+	}
+	return nil
+}
+
+// Update 対象アプリのインストール/アップデート
+func (s *SteamCmd) Update(ctx context.Context, appID, installDir, platform string) error {
+	if err := s.Check(); err != nil {
+		return fmt.Errorf("アップデートに失敗しました: %w", err)
 	}
 
 	// 引数の構築
@@ -25,7 +32,7 @@ func (s *SteamCmd) Update(ctx context.Context, appID int, installDir, platform s
 	args = append(args,
 		"+force_install_dir", installDir,
 		"+login", "anonymous",
-		"+app_update", fmt.Sprint(rune(appID)),
+		"+app_update", appID,
 		"+quit",
 	)
 

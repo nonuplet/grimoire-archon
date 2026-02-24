@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/nonuplet/grimoire-archon/internal/infra"
+	"github.com/nonuplet/grimoire-archon/internal/infra/steamcmd"
 	"github.com/nonuplet/grimoire-archon/internal/usecase"
 )
 
@@ -19,7 +19,7 @@ var updateCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := args[0]
 		ctx := context.Background()
-		updateUsecase := usecase.NewUpdateUsecase(&infra.SteamCmd{})
+		updateUsecase := usecase.NewUpdateUsecase(&steamcmd.SteamCmd{})
 
 		game, ok := cfg.Games[name]
 		if !ok {

@@ -8,7 +8,8 @@ import (
 	"time"
 
 	"github.com/nonuplet/grimoire-archon/internal/config"
-	"github.com/nonuplet/grimoire-archon/pkg"
+	"github.com/nonuplet/grimoire-archon/internal/infra/cli"
+	"github.com/nonuplet/grimoire-archon/internal/infra/storage"
 )
 
 type backupCheckType int
@@ -46,17 +47,17 @@ func (u *CleanUsecase) Execute(archonCfg *config.ArchonConfig, gameCfg *config.G
 	var ok bool
 	switch backupCheck {
 	case backupCheckNoDir, backupCheckNotExist:
-		ok, err = pkg.AskYesNo(os.Stdin, "バックアップが存在しません！本当に削除してもよろしいですか？", false)
+		ok, err = cli.AskYesNo(os.Stdin, "バックアップが存在しません！本当に削除してもよろしいですか？", false)
 		if err != nil {
 			return fmt.Errorf("確認に失敗しました: %w", err)
 		}
 	case backupCheckOld:
-		ok, err = pkg.AskYesNo(os.Stdin, "古いバックアップしかありませんが、本当に削除してもよろしいですか？", false)
+		ok, err = cli.AskYesNo(os.Stdin, "古いバックアップしかありませんが、本当に削除してもよろしいですか？", false)
 		if err != nil {
 			return fmt.Errorf("確認に失敗しました: %w", err)
 		}
 	case backupCheckOk:
-		ok, err = pkg.AskYesNo(os.Stdin, fmt.Sprintf("%s を削除してもよろしいですか？", gameCfg.Name), true)
+		ok, err = cli.AskYesNo(os.Stdin, fmt.Sprintf("%s を削除してもよろしいですか？", gameCfg.Name), true)
 		if err != nil {
 			return fmt.Errorf("確認に失敗しました: %w", err)
 		}
@@ -64,7 +65,7 @@ func (u *CleanUsecase) Execute(archonCfg *config.ArchonConfig, gameCfg *config.G
 
 	// バックアップの状態が良くない場合、しつこく再確認
 	if backupCheck != backupCheckOk && ok {
-		ok, err = pkg.AskYesNo(os.Stdin, "本当に大丈夫？消しますよ？", false)
+		ok, err = cli.AskYesNo(os.Stdin, "本当に大丈夫？消しますよ？", false)
 		if err != nil {
 			return fmt.Errorf("確認に失敗しました: %w", err)
 		}
@@ -76,7 +77,7 @@ func (u *CleanUsecase) Execute(archonCfg *config.ArchonConfig, gameCfg *config.G
 
 	// ユーザに確認
 	fmt.Printf("%s の削除処理を実行します...\n", gameCfg.Name)
-	err = pkg.ClearDirectoryContents(gameCfg.InstallDir)
+	err = storage.ClearDirectoryContents(gameCfg.InstallDir)
 	if err != nil {
 		return fmt.Errorf("削除処理に失敗しました: %w", err)
 	}
@@ -151,7 +152,7 @@ func (u *CleanUsecase) checkBackup(archonCfg *config.ArchonConfig, gameCfg *conf
 
 // askAndBackup バックアップの確認と実行
 func askAndBackup(archonCfg *config.ArchonConfig, gameCfg *config.GameConfig, msg string) (bool, error) {
-	ok, err := pkg.AskYesNo(os.Stdin, msg, true)
+	ok, err := cli.AskYesNo(os.Stdin, msg, true)
 	if err != nil {
 		return false, fmt.Errorf("確認に失敗しました: %w", err)
 	}
