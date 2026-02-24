@@ -94,6 +94,9 @@ func (u *BackupUsecase) createSnapshot(archonCfg *config.ArchonConfig, gameCfg *
 
 	// tmpフォルダを作成 作業が終わったら成功しても失敗しても消す
 	tmpDir := filepath.Join(snapshotPath, "tmp")
+
+	// tmpフォルダ以下に <gamename>_<timestamp> ディレクトリを作成 ここにデータを格納する
+	archiveDir := filepath.Join(tmpDir, fmt.Sprintf("%s_%s", gameCfg.Name, storage.GetTimestamp()))
 	defer func(path string) {
 		err := storage.RemoveAll(path)
 		if err != nil {
@@ -101,7 +104,7 @@ func (u *BackupUsecase) createSnapshot(archonCfg *config.ArchonConfig, gameCfg *
 		}
 	}(tmpDir)
 
-	entries, err := snapshot.CopyToTmp(tmpDir, archonCfg, gameCfg)
+	entries, err := snapshot.CopyToTmp(archiveDir, archonCfg, gameCfg)
 	if err != nil {
 		return fmt.Errorf("バックアップファイルのコピーに失敗しました: %w", err)
 	}
@@ -115,8 +118,7 @@ func (u *BackupUsecase) createSnapshot(archonCfg *config.ArchonConfig, gameCfg *
 		Os:          runtime.GOOS,
 		Files:       entries,
 	}
-
-	if err := meta.Save(filepath.Join(snapshotPath, "metadata.yaml")); err != nil {
+	if err := meta.Save(filepath.Join(archiveDir, "metadata.yaml")); err != nil {
 		return fmt.Errorf("metadata.yamlの保存に失敗しました: %w", err)
 	}
 

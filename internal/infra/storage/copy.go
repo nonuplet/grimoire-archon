@@ -20,22 +20,25 @@ func CopyFileOrDir(src, dst string) error {
 		return fmt.Errorf("コピー先パスの取得: %w", err)
 	}
 
-	info, err := os.Stat(src)
+	info, err := GetInfo(src)
 	if err != nil {
 		return fmt.Errorf("コピー元 %s が取得できません", src)
 	}
 
-	// Directory
 	if info.IsDir() {
+		// Directory
 		fmt.Printf("ディレクトリをコピー中: %s -> %s\n", src, dst)
 		if err := os.CopyFS(dst, os.DirFS(src)); err != nil {
 			return fmt.Errorf("ディレクトリのコピーに失敗しました: %w", err)
 		}
+	} else {
+		// File
+		fmt.Printf("ファイルをコピー中: %s -> %s\n", src, dst)
+		if err := copyFile(src, dst); err != nil {
+			return fmt.Errorf("ファイルのコピーに失敗しました: %w", err)
+		}
 	}
-
-	// File
-	fmt.Printf("ファイルをコピー中: %s -> %s\n", src, dst)
-	return copyFile(dst, src)
+	return nil
 }
 
 // CopyFile はファイル src を dst へコピーします。
