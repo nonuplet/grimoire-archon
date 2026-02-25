@@ -96,7 +96,8 @@ func (u *BackupUsecase) createSnapshot(archonCfg *config.ArchonConfig, gameCfg *
 	tmpDir := filepath.Join(snapshotPath, "tmp")
 
 	// tmpフォルダ以下に <gamename>_<timestamp> ディレクトリを作成 ここにデータを格納する
-	archiveDir := filepath.Join(tmpDir, fmt.Sprintf("%s_%s", gameCfg.Name, storage.GetTimestamp()))
+	archiveName := fmt.Sprintf("%s_%s", gameCfg.Name, storage.GetTimestamp())
+	archiveDir := filepath.Join(tmpDir, archiveName)
 	defer func(path string) {
 		err := storage.RemoveAll(path)
 		if err != nil {
@@ -123,8 +124,7 @@ func (u *BackupUsecase) createSnapshot(archonCfg *config.ArchonConfig, gameCfg *
 	}
 
 	// zipにする
-	timestamp := storage.GetTimestamp()
-	zipPath := filepath.Join(snapshotPath, fmt.Sprintf("%s_%s.zip", gameCfg.Name, timestamp))
+	zipPath := filepath.Join(snapshotPath, fmt.Sprintf("%s.zip", archiveName))
 	if err := storage.ZipDir(tmpDir, zipPath); err != nil {
 		return fmt.Errorf("バックアップの圧縮に失敗しました: %w", err)
 	}
