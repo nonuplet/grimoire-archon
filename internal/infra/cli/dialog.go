@@ -27,3 +27,11 @@ func AskYesNo(r io.Reader, question string, defaultYes bool) (bool, error) {
 	}
 	return input != "" && input != `n` && input != "no", nil
 }
+
+// Writeln 文字列を結合して最後に改行する
+func Writeln(builder *strings.Builder, strs ...string) {
+	for _, str := range strs {
+		builder.WriteString(str)
+	}
+	builder.WriteString("\n")
+}
