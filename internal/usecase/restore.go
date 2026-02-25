@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -68,12 +69,12 @@ func (u *RestoreUsecase) restoreSnapshot(archonCfg *config.ArchonConfig, gameCfg
 	if err := storage.MkdirAll(tmpDir, 0o755); err != nil {
 		return fmt.Errorf("一時ディレクトリの作成に失敗しました: %w", err)
 	}
-	//defer func(path string) {
-	//	err := storage.RemoveAll(path)
-	//	if err != nil {
-	//		fmt.Fprintf(os.Stderr, "一時ディレクトリの削除に失敗しました: %v", err)
-	//	}
-	//}(tmpDir)
+	defer func(path string) {
+		err := storage.RemoveAll(path)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "一時ディレクトリの削除に失敗しました: %v", err)
+		}
+	}(tmpDir)
 
 	// unzipしたあとのディレクトリ指定に使う
 	archiveName := strings.TrimSuffix(filepath.Base(zipPath), filepath.Ext(zipPath))
