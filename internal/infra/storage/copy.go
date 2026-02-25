@@ -8,8 +8,10 @@ import (
 	"time"
 )
 
-// CopyFileOrDir ファイルまたはディレクトリをコピー
-func CopyFileOrDir(src, dst string) error {
+// CopyFileOrDir ファイルまたはディレクトリをコピー。
+// overwrite が true の場合、コピー先が既に存在しても上書きする。
+// overwrite が false の場合、コピー先が既に存在するとエラーを返す。
+func CopyFileOrDir(src, dst string, overwrite bool) error {
 	// 絶対パスに変換
 	src, err := GetAbsolutePath(src)
 	if err != nil {
@@ -28,22 +30,57 @@ func CopyFileOrDir(src, dst string) error {
 	if info.IsDir() {
 		// Directory
 		fmt.Printf("ディレクトリをコピー中: %s -> %s\n", src, dst)
-		if err := os.CopyFS(dst, os.DirFS(src)); err != nil {
+		if err := copyDir(src, dst, overwrite); err != nil {
 			return fmt.Errorf("ディレクトリのコピーに失敗しました: %w", err)
 		}
 	} else {
 		// File
 		fmt.Printf("ファイルをコピー中: %s -> %s\n", src, dst)
-		if err := copyFile(src, dst); err != nil {
+		if err := copyFile(src, dst, overwrite); err != nil {
 			return fmt.Errorf("ファイルのコピーに失敗しました: %w", err)
 		}
 	}
 	return nil
 }
 
-// CopyFile はファイル src を dst へコピーします。
-// dst はコピー先のファイルパスです。
-func copyFile(src, dst string) error {
+// copyDir はディレクトリ src を dst へ再帰的にコピーします。
+// overwrite が false のとき、既存ファイルはスキップせずエラーを返します。
+func copyDir(src, dst string, overwrite bool) error {
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return fmt.Errorf("ディレクトリの読み込みに失敗しました (%s): %w", src, err)
+	}
+
+	if err := os.MkdirAll(dst, 0o755); err != nil {
+		return fmt.Errorf("ディレクトリの作成に失敗しました (%s): %w", dst, err)
+	}
+
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+
+		if entry.IsDir() {
+			if err := copyDir(srcPath, dstPath, overwrite); err != nil {
+				return err
+			}
+		} else {
+			if err := copyFile(srcPath, dstPath, overwrite); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// copyFile はファイル src を dst へコピーします。
+// overwrite が false のとき、dst が既に存在する場合はエラーを返します。
+func copyFile(src, dst string, overwrite bool) error {
+	if !overwrite {
+		if _, err := os.Stat(dst); err == nil {
+			return fmt.Errorf("コピー先がすでに存在します (%s)", dst)
+		}
+	}
+
 	in, err := os.Open(src)
 	if err != nil {
 		return fmt.Errorf("コピー元が取得できません (%s): %w", src, err)
@@ -51,12 +88,12 @@ func copyFile(src, dst string) error {
 	defer func(in *os.File) {
 		inErr := in.Close()
 		if inErr != nil {
-			fmt.Fprintf(os.Stderr, "コピー元のクローズに失敗しました %v", err)
+			fmt.Fprintf(os.Stderr, "コピー元のクローズに失敗しました %v", inErr)
 		}
 	}(in)
 
 	if mkdirErr := os.MkdirAll(filepath.Dir(dst), 0o755); mkdirErr != nil {
-		return fmt.Errorf("親ディレクトリの作成に失敗しました (%s): %w", filepath.Dir(dst), err)
+		return fmt.Errorf("親ディレクトリの作成に失敗しました (%s): %w", filepath.Dir(dst), mkdirErr)
 	}
 
 	out, err := os.Create(dst)
@@ -64,9 +101,9 @@ func copyFile(src, dst string) error {
 		return fmt.Errorf("ファイルの作成に失敗しました (%s): %w", dst, err)
 	}
 	defer func(out *os.File) {
-		err := out.Close()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "コピー先のクローズに失敗しました %v", err)
+		closeErr := out.Close()
+		if closeErr != nil {
+			fmt.Fprintf(os.Stderr, "コピー先のクローズに失敗しました %v", closeErr)
 		}
 	}(out)
 

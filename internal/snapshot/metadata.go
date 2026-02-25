@@ -60,6 +60,24 @@ func (m *Metadata) Save(path string) error {
 	return nil
 }
 
+// LoadMetaData 指定したパスからメタデータをロード
+func LoadMetaData(path string) (*Metadata, error) {
+	if _, err := storage.GetInfo(path); err != nil {
+		return nil, fmt.Errorf("metadata.yamlの取得に失敗しました: %w", err)
+	}
+
+	data, err := storage.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("metadata.yamlのリードに失敗しました: %w", err)
+	}
+
+	var meta Metadata
+	if err := yaml.Unmarshal(data, &meta); err != nil {
+		return nil, fmt.Errorf("metadata.yamlのデコードに失敗しました: %w", err)
+	}
+	return &meta, nil
+}
+
 // FileEntry はzipに含まれる1ファイル分のメタデータです。
 type FileEntry struct {
 	ModifiedAt   time.Time `yaml:"modified_at"`

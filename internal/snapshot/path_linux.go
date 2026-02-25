@@ -10,22 +10,22 @@ import (
 	"github.com/nonuplet/grimoire-archon/internal/config"
 )
 
-// DirectoryType はWindows関連ディレクトリ(AppData, Document)の種類を表す型
-type DirectoryType string
+// WinDirectoryType はWindows関連ディレクトリ(AppData, Document)の種類を表す型
+type WinDirectoryType string
 
 const (
 	// DirectoryLocal AppData/Local
-	DirectoryLocal DirectoryType = "Local"
+	DirectoryLocal WinDirectoryType = "Local"
 	// DirectoryLocalLow AppData/LocalLow
-	DirectoryLocalLow DirectoryType = "LocalLow"
+	DirectoryLocalLow WinDirectoryType = "LocalLow"
 	// DirectoryRoaming AppData/Roaming
-	DirectoryRoaming DirectoryType = "Roaming"
+	DirectoryRoaming WinDirectoryType = "Roaming"
 	// DirectoryDocuments Documents
-	DirectoryDocuments DirectoryType = "Documents"
+	DirectoryDocuments WinDirectoryType = "Documents"
 )
 
-// Valid ディレクトリタイプが有効かどうかを検証
-func (d DirectoryType) Valid() error {
+// GetWinDirType Windows関連ディレクトリタイプが有効かどうかを検証
+func (d WinDirectoryType) GetWinDirType() error {
 	switch d {
 	case DirectoryLocal, DirectoryLocalLow, DirectoryRoaming, DirectoryDocuments:
 		return nil
@@ -37,8 +37,8 @@ func (d DirectoryType) Valid() error {
 // resolveWinAppdata は RuntimeEnv に応じた Windows AppData の親ディレクトリを返します。
 // subDir には "Local", "LocalLow", "Roaming", "Documents" を渡します。
 func resolveWinAppdata(archonCfg *config.ArchonConfig, gameCfg *config.GameConfig, subDir string) (string, error) {
-	dirType := DirectoryType(subDir)
-	if err := dirType.Valid(); err != nil {
+	dirType := WinDirectoryType(subDir)
+	if err := dirType.GetWinDirType(); err != nil {
 		return "", fmt.Errorf("サポートされていないディレクトリタイプ %s が指定されました", dirType)
 	}
 

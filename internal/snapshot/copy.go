@@ -94,7 +94,7 @@ func copyEntries(src, dst string, baseType BaseType, originalPath string) (FileE
 	}
 
 	// コピー
-	if err := storage.CopyFileOrDir(src, dst); err != nil {
+	if err := storage.CopyFileOrDir(src, dst, false); err != nil {
 		return FileEntry{}, fmt.Errorf("コピーに失敗しました: %w", err)
 	}
 
