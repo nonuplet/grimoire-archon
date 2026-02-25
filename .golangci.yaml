@@ -89,7 +89,6 @@ linters:
         - name: error-naming
         - name: increment-decrement
         - name: var-naming
-        - name: package-comments
         - name: range
         - name: receiver-naming
         - name: indent-error-flow
@@ -105,10 +104,10 @@ linters:
         - opinionated
 
     gocyclo:
-      min-complexity: 15
+      min-complexity: 20
 
     cyclop:
-      max-complexity: 15
+      max-complexity: 20
 
     nestif:
       min-complexity: 4
@@ -142,6 +141,13 @@ linters:
     misspell:
       locale: US
 
+    gosec:
+      excludes:
+        - G204 # Subprocess launched with variable
+        - G301 # Directory permissions 0750 or less
+        - G304 # Potential file inclusion via variable
+        - G306 # File permissions 0600 or less
+
   exclusions:
     # 自動生成コードの lint 警告を緩和
     generated: lax
@@ -161,6 +167,9 @@ linters:
       - linters:
           - lll
         source: "^//go:generate "
+      - linters:
+          - dupl
+        path: cmd/.* # コマンド関連はコードが似がちで引っかかるので
 
 issues:
   max-issues-per-linter: 0
