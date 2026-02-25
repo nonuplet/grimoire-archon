@@ -19,7 +19,7 @@ func resolveWinAppdata(gameCfg *config.GameConfig, subDir string) (string, error
 	}
 
 	switch gameCfg.RuntimeEnv {
-	case config.RuntimeEnvNative:
+	case "", config.RuntimeEnvNative:
 		return "", fmt.Errorf("linuxのネイティブ環境でAppDataを取得しようとしました。")
 	case config.RuntimeEnvWine:
 		// Wine: ~/.wine/drive_c/users/<user>/AppData/<subDir>
