@@ -20,8 +20,9 @@ type Config struct {
 
 // ArchonConfig Archonの構成
 type ArchonConfig struct {
-	BackupDir  string `yaml:"backup_dir"`
-	AppdataDir string `yaml:"appdata_dir,omitempty"`
+	BackupDir   string `yaml:"backup_dir"`
+	AppdataDir  string `yaml:"appdata_dir,omitempty"`
+	DocumentDir string `yaml:"document_dir,omitempty"`
 }
 
 // GameConfig ゲームのコンフィグ

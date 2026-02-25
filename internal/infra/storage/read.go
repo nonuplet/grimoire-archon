@@ -42,7 +42,7 @@ func ReadFile(path string) ([]byte, error) {
 
 	file, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("ファイル %s の読み込みに失敗しました: \n", file, err)
+		return nil, fmt.Errorf("ファイル %s の読み込みに失敗しました: %w", file, err)
 	}
 
 	return file, nil

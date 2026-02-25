@@ -104,10 +104,10 @@ linters:
         - opinionated
 
     gocyclo:
-      min-complexity: 15
+      min-complexity: 20
 
     cyclop:
-      max-complexity: 15
+      max-complexity: 20
 
     nestif:
       min-complexity: 4

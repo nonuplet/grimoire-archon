@@ -40,7 +40,7 @@ func expandTilde(path string) (string, error) {
 	// homeの取得
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("ホームディレクトリの取得に失敗しました: %w", err)
 	}
 
 	// "~" 単体の場合

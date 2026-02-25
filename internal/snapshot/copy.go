@@ -39,19 +39,12 @@ func CopyToTmp(tmpDir string, archonCfg *config.ArchonConfig, gameCfg *config.Ga
 		return abs, nil
 	}
 
-	// Wine / Proton の AppData ディレクトリ解決。
-	// archonCfg.AppdataDir が指定されている場合はそちらを起点とする。
+	// Windows関連ディレクトリ(AppData, Document)解決
 	resolveWinDir := func(subDir string) func(string) (string, error) {
 		return func(rel string) (string, error) {
-			var base string
-			if archonCfg.AppdataDir != "" {
-				base = filepath.Join(archonCfg.AppdataDir, subDir)
-			} else {
-				var err error
-				base, err = resolveWinAppdata(gameCfg, subDir)
-				if err != nil {
-					return "", err
-				}
+			base, err := resolveWinAppdata(archonCfg, gameCfg, subDir)
+			if err != nil {
+				return "", err
 			}
 			return filepath.Join(base, rel), nil
 		}
