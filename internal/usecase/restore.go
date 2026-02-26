@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	snapshot2 "github.com/nonuplet/grimoire-archon/internal/adapter/snapshot"
 	"github.com/nonuplet/grimoire-archon/internal/domain"
 	"github.com/nonuplet/grimoire-archon/internal/infra/filesystem"
-	"github.com/nonuplet/grimoire-archon/internal/snapshot"
 )
 
 // RestoreUsecase restoreのユースケース
@@ -25,7 +25,7 @@ func (u *RestoreUsecase) Execute(archonCfg *domain.ArchonConfig, gameCfg *domain
 		return err
 	}
 
-	if err := snapshot.CheckAndCreateSnapshotDir(archonCfg, gameCfg); err != nil {
+	if err := snapshot2.CheckAndCreateSnapshotDir(archonCfg, gameCfg); err != nil {
 		return fmt.Errorf("展開用ディレクトリの作成に失敗しました: %w", err)
 	}
 
@@ -87,7 +87,7 @@ func (u *RestoreUsecase) restoreSnapshot(archonCfg *domain.ArchonConfig, gameCfg
 	}
 
 	// リストア
-	if err := snapshot.RestoreFromTmp(archonCfg, gameCfg, archiveDir); err != nil {
+	if err := snapshot2.RestoreFromTmp(archonCfg, gameCfg, archiveDir); err != nil {
 		return fmt.Errorf("リストアに失敗しました: %w", err)
 	}
 

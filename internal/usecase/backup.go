@@ -7,10 +7,10 @@ import (
 	"runtime"
 	"time"
 
+	snapshot2 "github.com/nonuplet/grimoire-archon/internal/adapter/snapshot"
 	"github.com/nonuplet/grimoire-archon/internal/app"
 	"github.com/nonuplet/grimoire-archon/internal/domain"
 	"github.com/nonuplet/grimoire-archon/internal/infra/filesystem"
-	"github.com/nonuplet/grimoire-archon/internal/snapshot"
 )
 
 // BackupUsecase backupのユースケース
@@ -29,7 +29,7 @@ func (u *BackupUsecase) Execute(archonCfg *domain.ArchonConfig, gameCfg *domain.
 	}
 
 	// バックアップディレクトリの存在確認と作成
-	if err := snapshot.CheckAndCreateSnapshotDir(archonCfg, gameCfg); err != nil {
+	if err := snapshot2.CheckAndCreateSnapshotDir(archonCfg, gameCfg); err != nil {
 		return fmt.Errorf("バックアップディレクトリ作成に失敗しました: %w", err)
 	}
 
@@ -81,7 +81,7 @@ func (u *BackupUsecase) createSnapshot(archonCfg *domain.ArchonConfig, gameCfg *
 	archiveName := fmt.Sprintf("%s_%s", gameCfg.Name, filesystem.GetTimestamp())
 	archiveDir := filepath.Join(tmpDir, archiveName)
 
-	entries, err := snapshot.CopyToTmp(archiveDir, archonCfg, gameCfg)
+	entries, err := snapshot2.CopyToTmp(archiveDir, archonCfg, gameCfg)
 	if err != nil {
 		return fmt.Errorf("バックアップファイルのコピーに失敗しました: %w", err)
 	}
