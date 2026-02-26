@@ -3,10 +3,6 @@ package domain
 import (
 	"fmt"
 	"time"
-
-	"github.com/goccy/go-yaml"
-
-	"github.com/nonuplet/grimoire-archon/internal/infra/filesystem"
 )
 
 // MetaVersion はメタデータスキーマのバージョンです。
@@ -36,6 +32,20 @@ const (
 	BaseTypeAbsolute BaseType = "absolute"
 )
 
+// SnapshotCondition スナップショットのチェック時の状態を表す
+type SnapshotCondition int
+
+const (
+	// SnapshotDirNotFound スナップショット用ディレクトリがない
+	SnapshotDirNotFound SnapshotCondition = iota
+	// SnapshotFileNotFound スナップショットファイルがない
+	SnapshotFileNotFound
+	// SnapshotFileTooOld スナップショットファイルが古い
+	SnapshotFileTooOld
+	// SnapshotHealthy スナップショットが正常
+	SnapshotHealthy
+)
+
 // Metadata はスナップショットzip内の matadata.yaml に書き出す構造体です。
 type Metadata struct {
 	Version     string      `yaml:"version"` // MetaVersion
@@ -44,38 +54,6 @@ type Metadata struct {
 	ToolVersion string      `yaml:"tool_version"`
 	Os          string      `yaml:"os"`
 	Files       []FileEntry `yaml:"files"`
-}
-
-// Save メタデータの保存
-func (m *Metadata) Save(path string) error {
-	data, err := yaml.Marshal(m)
-	if err != nil {
-		return fmt.Errorf("metadata.yamlのマーシャリングに失敗しました: %w", err)
-	}
-
-	if err := filesystem.WriteFile(path, data, 0o644); err != nil {
-		return fmt.Errorf("metadata.yamlの書き込みに失敗しました: %w", err)
-	}
-
-	return nil
-}
-
-// LoadMetaData 指定したパスからメタデータをロード
-func LoadMetaData(path string) (*Metadata, error) {
-	if _, err := filesystem.GetInfo(path); err != nil {
-		return nil, fmt.Errorf("metadata.yamlの取得に失敗しました: %w", err)
-	}
-
-	data, err := filesystem.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("metadata.yamlのリードに失敗しました: %w", err)
-	}
-
-	var meta Metadata
-	if err := yaml.Unmarshal(data, &meta); err != nil {
-		return nil, fmt.Errorf("metadata.yamlのデコードに失敗しました: %w", err)
-	}
-	return &meta, nil
 }
 
 // FileEntry はzipに含まれる1ファイル分のメタデータです。

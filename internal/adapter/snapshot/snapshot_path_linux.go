@@ -12,18 +12,18 @@ import (
 
 // resolveWinAppdata は RuntimeEnv に応じた Windows AppData の親ディレクトリを返します。
 // subDir には "Local", "LocalLow", "Roaming", "Documents" を渡します。
-func resolveWinAppdata(archonCfg *domain.ArchonConfig, gameCfg *domain.GameConfig, subDir string) (string, error) {
+func (snap Snapshot) resolveWinAppdata(subDir string) (string, error) {
 	dirType := domain.WinDirectoryType(subDir)
 	if err := dirType.GetWinDirType(); err != nil {
 		return "", fmt.Errorf("サポートされていないディレクトリタイプ %s が指定されました", dirType)
 	}
 
 	// コンフィグで指定されていればオーバーライドする
-	if dirType == domain.DirectoryDocuments && archonCfg.DocumentDir != "" {
-		return archonCfg.DocumentDir, nil
+	if dirType == domain.DirectoryDocuments && snap.archonCfg.DocumentDir != "" {
+		return snap.archonCfg.DocumentDir, nil
 	}
-	if dirType != domain.DirectoryDocuments && archonCfg.AppdataDir != "" {
-		return filepath.Join(archonCfg.AppdataDir, string(dirType)), nil
+	if dirType != domain.DirectoryDocuments && snap.archonCfg.AppdataDir != "" {
+		return filepath.Join(snap.archonCfg.AppdataDir, string(dirType)), nil
 	}
 
 	home, err := os.UserHomeDir()
@@ -31,7 +31,7 @@ func resolveWinAppdata(archonCfg *domain.ArchonConfig, gameCfg *domain.GameConfi
 		return "", fmt.Errorf("ホームディレクトリが取得できません: %w", err)
 	}
 
-	switch gameCfg.RuntimeEnv {
+	switch snap.gameCfg.RuntimeEnv {
 	case "", domain.RuntimeEnvNative:
 		return "", fmt.Errorf("linuxのネイティブ環境でAppDataを取得しようとしました。")
 
@@ -60,7 +60,7 @@ func resolveWinAppdata(archonCfg *domain.ArchonConfig, gameCfg *domain.GameConfi
 
 		// そうでない場合(Steamクライアントを使っている場合)
 		// ProtonはデフォルトでSteam の compatdata 以下に保存する
-		if gameCfg.Steam == nil || gameCfg.Steam.AppID == "" {
+		if snap.gameCfg.Steam == nil || snap.gameCfg.Steam.AppID == "" {
 			return "", fmt.Errorf("proton 環境では steam 設定が必要です")
 		}
 
@@ -69,13 +69,13 @@ func resolveWinAppdata(archonCfg *domain.ArchonConfig, gameCfg *domain.GameConfi
 			steamRoot = filepath.Join(home, ".steam", "steam")
 		}
 
-		pfx := filepath.Join(steamRoot, "steamapps", "compatdata", gameCfg.Steam.AppID, "pfx")
+		pfx := filepath.Join(steamRoot, "steamapps", "compatdata", snap.gameCfg.Steam.AppID, "pfx")
 		if dirType == domain.DirectoryDocuments {
 			return filepath.Join(pfx, "drive_c", "users", "steamuser", string(domain.DirectoryDocuments)), nil
 		}
 		return filepath.Join(pfx, "drive_c", "users", "steamuser", "AppData", string(dirType)), nil
 
 	default:
-		return "", fmt.Errorf("未知の RuntimeEnvが指定されています: %s", gameCfg.RuntimeEnv)
+		return "", fmt.Errorf("未知の RuntimeEnvが指定されています: %s", snap.gameCfg.RuntimeEnv)
 	}
 }

@@ -7,8 +7,8 @@ import (
 )
 
 // ClearDirectoryContents ディレクトリ内のすべてのファイルを削除
-func ClearDirectoryContents(path string) error {
-	path, err := GetAbsolutePath(path)
+func (f *FileSystem) ClearDirectoryContents(path string) error {
+	path, err := f.getAbsolutePath(path)
 	if err != nil {
 		return fmt.Errorf("絶対パスの取得: %w", err)
 	}
@@ -26,8 +26,8 @@ func ClearDirectoryContents(path string) error {
 }
 
 // RemoveAll は指定されたパスを削除します。
-func RemoveAll(path string) error {
-	path, err := GetAbsolutePath(path)
+func (f *FileSystem) RemoveAll(path string) error {
+	path, err := f.getAbsolutePath(path)
 	if err != nil {
 		return fmt.Errorf("%s のパス取得に失敗しました: %w", path, err)
 	}

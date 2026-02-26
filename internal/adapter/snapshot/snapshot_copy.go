@@ -6,14 +6,15 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/goccy/go-yaml"
+
 	"github.com/nonuplet/grimoire-archon/internal/domain"
-	"github.com/nonuplet/grimoire-archon/internal/infra/filesystem"
 )
 
 // CopyToTmp は gameConfig で指定されたバックアップ対象ファイルを tmpDir にコピーします。
 // コピーしたファイルの FileEntry 一覧を返します。
-func CopyToTmp(tmpDir string, archonCfg *domain.ArchonConfig, gameCfg *domain.GameConfig) ([]domain.FileEntry, error) {
-	bt := gameCfg.BackupTargets
+func (snap Snapshot) CopyToTmp(tmpDir string) ([]domain.FileEntry, error) {
+	bt := snap.gameCfg.BackupTargets
 	if bt.IsEmpty() {
 		return nil, nil
 	}
@@ -26,7 +27,7 @@ func CopyToTmp(tmpDir string, archonCfg *domain.ArchonConfig, gameCfg *domain.Ga
 
 	// 各 BaseType のソースディレクトリ解決関数を定義
 	resolveInstallDir := func(rel string) (string, error) {
-		return filepath.Join(gameCfg.InstallDir, rel), nil
+		return filepath.Join(snap.gameCfg.InstallDir, rel), nil
 	}
 	resolveUserHome := func(rel string) (string, error) {
 		home, err := os.UserHomeDir()
@@ -42,7 +43,7 @@ func CopyToTmp(tmpDir string, archonCfg *domain.ArchonConfig, gameCfg *domain.Ga
 	// Windows関連ディレクトリ(AppData, Document)解決
 	resolveWinDir := func(subDir string) func(string) (string, error) {
 		return func(rel string) (string, error) {
-			base, err := resolveWinAppdata(archonCfg, gameCfg, subDir)
+			base, err := snap.resolveWinAppdata(subDir)
 			if err != nil {
 				return "", err
 			}
@@ -73,7 +74,7 @@ func CopyToTmp(tmpDir string, archonCfg *domain.ArchonConfig, gameCfg *domain.Ga
 			dst := filepath.Join(tmpDir, string(spec.baseType), pattern)
 
 			// コピーする
-			newEntry, err := copyEntries(src, dst, spec.baseType, pattern)
+			newEntry, err := snap.copyEntries(src, dst, spec.baseType, pattern)
 			if err != nil {
 				return nil, err
 			}
@@ -84,17 +85,31 @@ func CopyToTmp(tmpDir string, archonCfg *domain.ArchonConfig, gameCfg *domain.Ga
 	return entries, nil
 }
 
+// SaveMetaData メタデータの保存
+func (snap Snapshot) SaveMetaData(path string, meta *domain.Metadata) error {
+	data, err := yaml.Marshal(meta)
+	if err != nil {
+		return fmt.Errorf("metadata.yamlのマーシャリングに失敗しました: %w", err)
+	}
+
+	if err := snap.fs.WriteFile(path, data, 0o644); err != nil {
+		return fmt.Errorf("metadata.yamlの書き込みに失敗しました: %w", err)
+	}
+
+	return nil
+}
+
 // copyEntries は src を dst へコピーし、FileEntry 一覧を返します。
 // ファイル/ディレクトリの判定は util.CopyFileOrDir に委譲します。
-func copyEntries(src, dst string, baseType domain.BaseType, originalPath string) (domain.FileEntry, error) {
+func (snap Snapshot) copyEntries(src, dst string, baseType domain.BaseType, originalPath string) (domain.FileEntry, error) {
 	// コピー元のinfo取得
-	info, err := filesystem.GetInfo(src)
+	info, err := snap.fs.Stat(src)
 	if err != nil {
 		return domain.FileEntry{}, fmt.Errorf("コピー元のファイル/ディレクトリの情報取得に失敗しました: %w", err)
 	}
 
 	// コピー
-	if err := filesystem.CopyFileOrDir(src, dst, false); err != nil {
+	if err := snap.fs.CopyFileOrDir(src, dst, false); err != nil {
 		return domain.FileEntry{}, fmt.Errorf("コピーに失敗しました: %w", err)
 	}
 

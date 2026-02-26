@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/nonuplet/grimoire-archon/internal/infra/filesystem"
+	"github.com/nonuplet/grimoire-archon/internal/adapter/snapshot"
 	"github.com/nonuplet/grimoire-archon/internal/usecase"
 )
 
@@ -21,19 +21,18 @@ var restoreCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := args[0]
 		zipPath := args[1]
-		restoreUsecase := usecase.NewRestoreUsecase()
 
 		game, ok := cfg.Games[name]
 		if !ok {
 			return fmt.Errorf("%s は設定されていません。コンフィグを確認してください", name)
 		}
-		if _, err := filesystem.GetInfo(zipPath); err != nil {
-			return fmt.Errorf("アーカイブファイル %s が見つかりません。", zipPath)
-		}
+
+		snap := snapshot.NewSnapshot(cfg.Archon, game, fs, cliUtil)
+		restoreUsecase := usecase.NewRestoreUsecase(cfg.Archon, game, snap, fs)
 
 		fmt.Printf("%s の復元処理を行います...\n", name)
 
-		if err := restoreUsecase.Execute(cfg.Archon, game, zipPath); err != nil {
+		if err := restoreUsecase.Execute(zipPath); err != nil {
 			return fmt.Errorf("%s の復元に失敗しました : %w", name, err)
 		}
 

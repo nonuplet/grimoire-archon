@@ -8,15 +8,15 @@ import (
 	"strings"
 )
 
-// GetAbsolutePath はパスを絶対パスに変換します。
+// getAbsolutePath はパスを絶対パスに変換します。
 // パス先頭の "~" はユーザーのホームディレクトリに展開されます。
 // 環境変数は展開されます。
-func GetAbsolutePath(path string) (string, error) {
+func (f *FileSystem) getAbsolutePath(path string) (string, error) {
 	// 変数の展開
 	path = os.ExpandEnv(path)
 
 	// ~ の展開
-	path, err := expandTilde(path)
+	path, err := f.expandTilde(path)
 	if err != nil {
 		return "", fmt.Errorf("~の展開: %w", err)
 	}
@@ -31,7 +31,7 @@ func GetAbsolutePath(path string) (string, error) {
 }
 
 // expandTilde はパスの先頭にある "~" をユーザーのホームディレクトリに展開します。
-func expandTilde(path string) (string, error) {
+func (f *FileSystem) expandTilde(path string) (string, error) {
 	// "~" で始まっていない、または "~" 単体でない場合はそのまま返す
 	if path == "" || !strings.HasPrefix(path, "~") {
 		return path, nil

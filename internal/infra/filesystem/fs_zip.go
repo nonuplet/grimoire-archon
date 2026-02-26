@@ -17,8 +17,8 @@ const (
 )
 
 // IsZipFile は指定したファイルがzipファイルかどうか判定します。
-func IsZipFile(path string) bool {
-	path, err := GetAbsolutePath(path)
+func (f *FileSystem) IsZipFile(path string) bool {
+	path, err := f.getAbsolutePath(path)
 	if err != nil {
 		return false
 	}
@@ -29,7 +29,7 @@ func IsZipFile(path string) bool {
 	}
 
 	// ファイルを開いてマジックバイトの確認
-	f, err := os.Open(path)
+	file, err := os.Open(path)
 	if err != nil {
 		return false
 	}
@@ -38,10 +38,10 @@ func IsZipFile(path string) bool {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "zipファイル %s のクローズに失敗しました: %v\n", path, err)
 		}
-	}(f)
+	}(file)
 
 	buf := make([]byte, 4)
-	if _, err := f.Read(buf); err != nil {
+	if _, err := file.Read(buf); err != nil {
 		return false
 	}
 
@@ -52,18 +52,18 @@ func IsZipFile(path string) bool {
 	return buf[0] == 0x50 && buf[1] == 0x4B && buf[2] == 0x03 && buf[3] == 0x04
 }
 
-// ZipDir はdirの内容をzipFilePathに圧縮します。
-func ZipDir(dir, zipFilePath string) error {
-	dir, err := GetAbsolutePath(dir)
+// Zip はdirの内容をzipFilePathに圧縮します。
+func (f *FileSystem) Zip(dir, zipFilePath string) error {
+	dir, err := f.getAbsolutePath(dir)
 	if err != nil {
 		return fmt.Errorf("ディレクトリパスの取得: %w", err)
 	}
-	zipFilePath, err = GetAbsolutePath(zipFilePath)
+	zipFilePath, err = f.getAbsolutePath(zipFilePath)
 	if err != nil {
 		return fmt.Errorf("zipファイルパスの取得: %w", err)
 	}
 
-	f, err := os.Create(zipFilePath)
+	file, err := os.Create(zipFilePath)
 	if err != nil {
 		return fmt.Errorf("zipファイル %s の作成に失敗しました: %w", zipFilePath, err)
 	}
@@ -72,9 +72,9 @@ func ZipDir(dir, zipFilePath string) error {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "zipファイル %s のクローズに失敗しました: %v\n", zipFilePath, err)
 		}
-	}(f)
+	}(file)
 
-	zw := zip.NewWriter(f)
+	zw := zip.NewWriter(file)
 	defer func(zw *zip.Writer) {
 		err := zw.Close()
 		if err != nil {
@@ -89,13 +89,13 @@ func ZipDir(dir, zipFilePath string) error {
 }
 
 // Unzip は zipFilePath を dstDir に展開します。
-func Unzip(zipFilePath, dstDir string) error {
+func (f *FileSystem) Unzip(zipFilePath, dstDir string) error {
 	// 絶対パスへ変換
-	zipFilePath, err := GetAbsolutePath(zipFilePath)
+	zipFilePath, err := f.getAbsolutePath(zipFilePath)
 	if err != nil {
 		return fmt.Errorf("zipファイルパスの取得エラー: %w", err)
 	}
-	dstDir, err = GetAbsolutePath(dstDir)
+	dstDir, err = f.getAbsolutePath(dstDir)
 	if err != nil {
 		return fmt.Errorf("展開先ディレクトリパスの取得エラー: %w", err)
 	}
@@ -118,8 +118,8 @@ func Unzip(zipFilePath, dstDir string) error {
 	}
 
 	// ZIP内の各ファイル・ディレクトリを順番に処理
-	for _, f := range r.File {
-		if err := extractAndWriteFile(dstDir, f); err != nil {
+	for _, file := range r.File {
+		if err := extractAndWriteFile(dstDir, file); err != nil {
 			return err
 		}
 	}
@@ -129,9 +129,9 @@ func Unzip(zipFilePath, dstDir string) error {
 
 // extractAndWriteFile は単一のファイルを安全に解凍・書き出しします
 // ※ループ内で defer を安全に実行するために関数を分離しています
-func extractAndWriteFile(dstDir string, f *zip.File) error {
+func extractAndWriteFile(dstDir string, file *zip.File) error {
 	// 展開先のフルパスを構築
-	fpath := filepath.Join(dstDir, filepath.Clean(f.Name))
+	fpath := filepath.Join(dstDir, filepath.Clean(file.Name))
 
 	// Zip Slip脆弱性対策：展開先パスが指定ディレクトリ内にあるか確認
 	if !strings.HasPrefix(fpath, filepath.Clean(dstDir)+string(os.PathSeparator)) {
@@ -139,12 +139,12 @@ func extractAndWriteFile(dstDir string, f *zip.File) error {
 	}
 
 	// Zip Bomb対策: 異常な圧縮率のデータを弾く
-	if isSuspiciousRatio(f) {
-		return fmt.Errorf("圧縮率が異常なファイルを検出しました。zip bombの可能性があります: %s", f.Name)
+	if isSuspiciousRatio(file) {
+		return fmt.Errorf("圧縮率が異常なファイルを検出しました。zip bombの可能性があります: %s", file.Name)
 	}
 
 	// エントリがディレクトリの場合は作成して終了
-	if f.FileInfo().IsDir() {
+	if file.FileInfo().IsDir() {
 		if err := os.MkdirAll(fpath, os.ModePerm); err != nil {
 			return fmt.Errorf("展開先ディレクトリの作成に失敗しました: %w", err)
 		}
@@ -157,7 +157,7 @@ func extractAndWriteFile(dstDir string, f *zip.File) error {
 	}
 
 	// ZIP内のファイルを開く
-	rc, err := f.Open()
+	rc, err := file.Open()
 	if err != nil {
 		return fmt.Errorf("zip内のファイルを開けませんでした: %w", err)
 	}
@@ -169,16 +169,16 @@ func extractAndWriteFile(dstDir string, f *zip.File) error {
 	}(rc)
 
 	// Zip Bomb対策2: サイズの上限を設定
-	if f.UncompressedSize64 > maxDecompressLimit {
-		return fmt.Errorf("圧縮率が異常なファイルを検出しました。zip bombの可能性があります: %s", f.Name)
+	if file.UncompressedSize64 > maxDecompressLimit {
+		return fmt.Errorf("圧縮率が異常なファイルを検出しました。zip bombの可能性があります: %s", file.Name)
 	}
 
 	// nolint:gosec // G115 size already checked
-	limitedReader := io.LimitReader(rc, int64(f.UncompressedSize64)+bufSize)
+	limitedReader := io.LimitReader(rc, int64(file.UncompressedSize64)+bufSize)
 
 	// 展開先のファイルを作成・オープン
 	// f.Mode() で元のファイルの権限を引き継ぐ
-	outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+	outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
 	if err != nil {
 		return fmt.Errorf("展開先ファイル(%s)を開けませんでした: %w", fpath, err)
 	}
@@ -191,7 +191,7 @@ func extractAndWriteFile(dstDir string, f *zip.File) error {
 
 	// ファイルの中身をコピー
 	if _, err := io.Copy(outFile, limitedReader); err != nil {
-		return fmt.Errorf("ファイルのコピーに失敗しました (%s): %w", f.Name, err)
+		return fmt.Errorf("ファイルのコピーに失敗しました (%s): %w", file.Name, err)
 	}
 
 	return nil

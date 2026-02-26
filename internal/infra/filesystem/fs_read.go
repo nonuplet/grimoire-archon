@@ -3,11 +3,12 @@ package filesystem
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
-// GetInfo はファイルが存在するかを確認します。
-func GetInfo(path string) (os.FileInfo, error) {
-	path, err := GetAbsolutePath(path)
+// Stat はファイルが存在するかを確認します。
+func (f *FileSystem) Stat(path string) (os.FileInfo, error) {
+	path, err := f.getAbsolutePath(path)
 	if err != nil {
 		return nil, fmt.Errorf("絶対パスの取得に失敗しました: %w", err)
 	}
@@ -20,8 +21,8 @@ func GetInfo(path string) (os.FileInfo, error) {
 }
 
 // ReadDir は指定されたパスのディレクトリエントリを読み取ります。
-func ReadDir(path string) ([]os.DirEntry, error) {
-	path, err := GetAbsolutePath(path)
+func (f *FileSystem) ReadDir(path string) ([]os.DirEntry, error) {
+	path, err := f.getAbsolutePath(path)
 	if err != nil {
 		return nil, fmt.Errorf("絶対パスの取得に失敗しました: %w", err)
 	}
@@ -34,8 +35,8 @@ func ReadDir(path string) ([]os.DirEntry, error) {
 }
 
 // ReadFile は指定されたパスのファイルを読み込みます。
-func ReadFile(path string) ([]byte, error) {
-	path, err := GetAbsolutePath(path)
+func (f *FileSystem) ReadFile(path string) ([]byte, error) {
+	path, err := f.getAbsolutePath(path)
 	if err != nil {
 		return nil, fmt.Errorf("絶対パスの取得に失敗しました: %w", err)
 	}
@@ -46,4 +47,9 @@ func ReadFile(path string) ([]byte, error) {
 	}
 
 	return file, nil
+}
+
+// GetTimestamp タイムスタンプの取得
+func (f *FileSystem) GetTimestamp() string {
+	return time.Now().Format("20060102_150405")
 }

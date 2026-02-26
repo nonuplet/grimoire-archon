@@ -8,7 +8,13 @@ import (
 )
 
 // SteamCmd steamcmdの操作
+// TODO: 将来的にバイナリのパスを指定できるようにする
 type SteamCmd struct{}
+
+// NewSteamCmd SteamCmdのインスタンスを生成する
+func NewSteamCmd() *SteamCmd {
+	return &SteamCmd{}
+}
 
 // Check steamcmdコマンドの存在確認
 func (s *SteamCmd) Check() error {
