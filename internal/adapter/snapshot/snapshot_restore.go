@@ -171,41 +171,7 @@ func (snap Snapshot) getOverwriteFiles(meta *domain.Metadata) []domain.FileEntry
 		return overwriteFiles
 	}
 
-	// 各 BaseType のソースディレクトリ解決関数を定義
-	resolveInstallDir := func(rel string) (string, error) { // nolint:unparam // resolve関数をmapに入れるため、型を合わせる必要がある
-		return filepath.Join(snap.gameCfg.InstallDir, rel), nil
-	}
-	resolveUserHome := func(rel string) (string, error) {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", fmt.Errorf("ユーザーホームディレクトリの取得に失敗しました: %w", err)
-		}
-		return filepath.Join(home, rel), nil
-	}
-	resolveAbsolute := func(abs string) (string, error) {
-		return abs, nil
-	}
-
-	// Windows関連ディレクトリ(AppData, Document)解決
-	resolveWinDir := func(subDir string) func(string) (string, error) {
-		return func(rel string) (string, error) {
-			base, err := snap.resolveWinAppdata(subDir)
-			if err != nil {
-				return "", err
-			}
-			return filepath.Join(base, rel), nil
-		}
-	}
-
-	resolvers := map[domain.BaseType]func(string) (string, error){
-		domain.BaseTypeInstallDir:      resolveInstallDir,
-		domain.BaseTypeUserHome:        resolveUserHome,
-		domain.BaseTypeAppdataLocal:    resolveWinDir("Local"),
-		domain.BaseTypeAppdataLocalLow: resolveWinDir("LocalLow"),
-		domain.BaseTypeAppdataRoaming:  resolveWinDir("Roaming"),
-		domain.BaseTypeWinDocuments:    resolveWinDir("Documents"),
-		domain.BaseTypeAbsolute:        resolveAbsolute,
-	}
+	resolvers := snap.buildResolvers()
 
 	for _, entry := range meta.Files {
 		resolver, ok := resolvers[entry.BaseType]
@@ -229,41 +195,7 @@ func (snap Snapshot) getOverwriteFiles(meta *domain.Metadata) []domain.FileEntry
 }
 
 func (snap Snapshot) copyArchivedFiles(meta *domain.Metadata, archiveDir string) error {
-	// 各 BaseType のソースディレクトリ解決関数を定義
-	resolveInstallDir := func(rel string) (string, error) { // nolint:unparam // resolve関数をmapに入れるため、型を合わせる必要がある
-		return filepath.Join(snap.gameCfg.InstallDir, rel), nil
-	}
-	resolveUserHome := func(rel string) (string, error) {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", fmt.Errorf("ユーザーホームディレクトリの取得に失敗しました: %w", err)
-		}
-		return filepath.Join(home, rel), nil
-	}
-	resolveAbsolute := func(abs string) (string, error) {
-		return abs, nil
-	}
-
-	// Windows関連ディレクトリ(AppData, Document)解決
-	resolveWinDir := func(subDir string) func(string) (string, error) {
-		return func(rel string) (string, error) {
-			base, err := snap.resolveWinAppdata(subDir)
-			if err != nil {
-				return "", err
-			}
-			return filepath.Join(base, rel), nil
-		}
-	}
-
-	resolvers := map[domain.BaseType]func(string) (string, error){
-		domain.BaseTypeInstallDir:      resolveInstallDir,
-		domain.BaseTypeUserHome:        resolveUserHome,
-		domain.BaseTypeAppdataLocal:    resolveWinDir("Local"),
-		domain.BaseTypeAppdataLocalLow: resolveWinDir("LocalLow"),
-		domain.BaseTypeAppdataRoaming:  resolveWinDir("Roaming"),
-		domain.BaseTypeWinDocuments:    resolveWinDir("Documents"),
-		domain.BaseTypeAbsolute:        resolveAbsolute,
-	}
+	resolvers := snap.buildResolvers()
 
 	if len(meta.Files) == 0 {
 		return fmt.Errorf("ファイル情報が空です。データが残っている場合、metadata.yamlが破損している可能性があります。")
