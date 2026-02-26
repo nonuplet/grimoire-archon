@@ -8,7 +8,7 @@ import (
 	"time"
 
 	snapshot2 "github.com/nonuplet/grimoire-archon/internal/adapter/snapshot"
-	"github.com/nonuplet/grimoire-archon/internal/app"
+	"github.com/nonuplet/grimoire-archon/internal/appversion"
 	"github.com/nonuplet/grimoire-archon/internal/domain"
 	"github.com/nonuplet/grimoire-archon/internal/infra/filesystem"
 )
@@ -91,7 +91,7 @@ func (u *BackupUsecase) createSnapshot(archonCfg *domain.ArchonConfig, gameCfg *
 		Version:     domain.MetaVersion,
 		Name:        gameCfg.Name,
 		CreatedAt:   time.Now(),
-		ToolVersion: app.Version,
+		ToolVersion: appversion.Version(),
 		Os:          runtime.GOOS,
 		Files:       entries,
 	}
