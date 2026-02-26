@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/nonuplet/grimoire-archon/internal/infra/storage"
+	"github.com/nonuplet/grimoire-archon/internal/infra/filesystem"
 	"github.com/nonuplet/grimoire-archon/internal/usecase"
 )
 
@@ -27,7 +27,7 @@ var restoreCmd = &cobra.Command{
 		if !ok {
 			return fmt.Errorf("%s は設定されていません。コンフィグを確認してください", name)
 		}
-		if _, err := storage.GetInfo(zipPath); err != nil {
+		if _, err := filesystem.GetInfo(zipPath); err != nil {
 			return fmt.Errorf("アーカイブファイル %s が見つかりません。", zipPath)
 		}
 

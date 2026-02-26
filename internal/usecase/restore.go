@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/nonuplet/grimoire-archon/internal/config"
-	"github.com/nonuplet/grimoire-archon/internal/infra/storage"
+	"github.com/nonuplet/grimoire-archon/internal/domain"
+	"github.com/nonuplet/grimoire-archon/internal/infra/filesystem"
 	"github.com/nonuplet/grimoire-archon/internal/snapshot"
 )
 
@@ -20,7 +20,7 @@ func NewRestoreUsecase() *RestoreUsecase {
 }
 
 // Execute restoreの実行
-func (u *RestoreUsecase) Execute(archonCfg *config.ArchonConfig, gameCfg *config.GameConfig, zipPath string) error {
+func (u *RestoreUsecase) Execute(archonCfg *domain.ArchonConfig, gameCfg *domain.GameConfig, zipPath string) error {
 	if err := u.checkPreRestore(archonCfg, gameCfg, zipPath); err != nil {
 		return err
 	}
@@ -37,7 +37,7 @@ func (u *RestoreUsecase) Execute(archonCfg *config.ArchonConfig, gameCfg *config
 }
 
 // checkPreRestore restore前チェック
-func (u *RestoreUsecase) checkPreRestore(archonCfg *config.ArchonConfig, gameCfg *config.GameConfig, zipPath string) error {
+func (u *RestoreUsecase) checkPreRestore(archonCfg *domain.ArchonConfig, gameCfg *domain.GameConfig, zipPath string) error {
 	if archonCfg == nil {
 		return fmt.Errorf("archonのコンフィグが定義されていません。")
 	}
@@ -53,24 +53,24 @@ func (u *RestoreUsecase) checkPreRestore(archonCfg *config.ArchonConfig, gameCfg
 		return fmt.Errorf("%s にバックアップの対象が指定されていません。", gameCfg.Name)
 	}
 
-	if !storage.IsZipFile(zipPath) {
+	if !filesystem.IsZipFile(zipPath) {
 		return fmt.Errorf("指定したファイル %s はzipファイルではありません", zipPath)
 	}
 
 	return nil
 }
 
-func (u *RestoreUsecase) restoreSnapshot(archonCfg *config.ArchonConfig, gameCfg *config.GameConfig, zipPath string) error {
+func (u *RestoreUsecase) restoreSnapshot(archonCfg *domain.ArchonConfig, gameCfg *domain.GameConfig, zipPath string) error {
 	// バックアップ先パスの設定
 	snapshotPath := filepath.Join(archonCfg.BackupDir, gameCfg.Name)
 
 	// tmpフォルダを作成 作業が終わったら成功しても失敗しても消す
 	tmpDir := filepath.Join(snapshotPath, "tmp")
-	if err := storage.MkdirAll(tmpDir, 0o755); err != nil {
+	if err := filesystem.MkdirAll(tmpDir, 0o755); err != nil {
 		return fmt.Errorf("一時ディレクトリの作成に失敗しました: %w", err)
 	}
 	defer func(path string) {
-		err := storage.RemoveAll(path)
+		err := filesystem.RemoveAll(path)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "一時ディレクトリの削除に失敗しました: %v", err)
 		}
@@ -82,7 +82,7 @@ func (u *RestoreUsecase) restoreSnapshot(archonCfg *config.ArchonConfig, gameCfg
 
 	// <backup_dir>/<game_name>/tmp/ に展開
 	fmt.Printf("zipファイル '%s' を展開しています... \n", filepath.Join(archonCfg.BackupDir, gameCfg.Name))
-	if err := storage.Unzip(zipPath, tmpDir); err != nil {
+	if err := filesystem.Unzip(zipPath, tmpDir); err != nil {
 		return fmt.Errorf("zipファイルの展開に失敗しました: %w", err)
 	}
 

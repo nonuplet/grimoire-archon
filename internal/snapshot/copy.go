@@ -6,13 +6,13 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/nonuplet/grimoire-archon/internal/config"
-	"github.com/nonuplet/grimoire-archon/internal/infra/storage"
+	"github.com/nonuplet/grimoire-archon/internal/domain"
+	"github.com/nonuplet/grimoire-archon/internal/infra/filesystem"
 )
 
 // CopyToTmp は gameConfig で指定されたバックアップ対象ファイルを tmpDir にコピーします。
 // コピーしたファイルの FileEntry 一覧を返します。
-func CopyToTmp(tmpDir string, archonCfg *config.ArchonConfig, gameCfg *config.GameConfig) ([]FileEntry, error) {
+func CopyToTmp(tmpDir string, archonCfg *domain.ArchonConfig, gameCfg *domain.GameConfig) ([]domain.FileEntry, error) {
 	bt := gameCfg.BackupTargets
 	if bt.IsEmpty() {
 		return nil, nil
@@ -20,7 +20,7 @@ func CopyToTmp(tmpDir string, archonCfg *config.ArchonConfig, gameCfg *config.Ga
 
 	type targetSpec struct {
 		resolvePath func(pattern string) (basePath string, err error)
-		baseType    BaseType
+		baseType    domain.BaseType
 		patterns    []string
 	}
 
@@ -51,16 +51,16 @@ func CopyToTmp(tmpDir string, archonCfg *config.ArchonConfig, gameCfg *config.Ga
 	}
 
 	specs := []targetSpec{
-		{resolveInstallDir, BaseTypeInstallDir, bt.InstallDir},
-		{resolveUserHome, BaseTypeUserHome, bt.UserHome},
-		{resolveWinDir("Local"), BaseTypeAppdataLocal, bt.WinAppdataLocal},
-		{resolveWinDir("LocalLow"), BaseTypeAppdataLocalLow, bt.WinAppdataLocalLow},
-		{resolveWinDir("Roaming"), BaseTypeAppdataRoaming, bt.WinAppdataRoaming},
-		{resolveWinDir("Documents"), BaseTypeWinDocuments, bt.WinDocuments},
-		{resolveAbsolute, BaseTypeAbsolute, bt.Absolute},
+		{resolveInstallDir, domain.BaseTypeInstallDir, bt.InstallDir},
+		{resolveUserHome, domain.BaseTypeUserHome, bt.UserHome},
+		{resolveWinDir("Local"), domain.BaseTypeAppdataLocal, bt.WinAppdataLocal},
+		{resolveWinDir("LocalLow"), domain.BaseTypeAppdataLocalLow, bt.WinAppdataLocalLow},
+		{resolveWinDir("Roaming"), domain.BaseTypeAppdataRoaming, bt.WinAppdataRoaming},
+		{resolveWinDir("Documents"), domain.BaseTypeWinDocuments, bt.WinDocuments},
+		{resolveAbsolute, domain.BaseTypeAbsolute, bt.Absolute},
 	}
 
-	var entries []FileEntry
+	var entries []domain.FileEntry
 
 	// 各タイプ(install_dir, user_home, ...)ごとに処理
 	for _, spec := range specs {
@@ -86,19 +86,19 @@ func CopyToTmp(tmpDir string, archonCfg *config.ArchonConfig, gameCfg *config.Ga
 
 // copyEntries は src を dst へコピーし、FileEntry 一覧を返します。
 // ファイル/ディレクトリの判定は util.CopyFileOrDir に委譲します。
-func copyEntries(src, dst string, baseType BaseType, originalPath string) (FileEntry, error) {
+func copyEntries(src, dst string, baseType domain.BaseType, originalPath string) (domain.FileEntry, error) {
 	// コピー元のinfo取得
-	info, err := storage.GetInfo(src)
+	info, err := filesystem.GetInfo(src)
 	if err != nil {
-		return FileEntry{}, fmt.Errorf("コピー元のファイル/ディレクトリの情報取得に失敗しました: %w", err)
+		return domain.FileEntry{}, fmt.Errorf("コピー元のファイル/ディレクトリの情報取得に失敗しました: %w", err)
 	}
 
 	// コピー
-	if err := storage.CopyFileOrDir(src, dst, false); err != nil {
-		return FileEntry{}, fmt.Errorf("コピーに失敗しました: %w", err)
+	if err := filesystem.CopyFileOrDir(src, dst, false); err != nil {
+		return domain.FileEntry{}, fmt.Errorf("コピーに失敗しました: %w", err)
 	}
 
-	return FileEntry{
+	return domain.FileEntry{
 		ArchivePath:  filepath.ToSlash(filepath.Join(string(baseType), originalPath)),
 		BaseType:     baseType,
 		OriginalPath: originalPath,

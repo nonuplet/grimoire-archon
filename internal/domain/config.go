@@ -1,4 +1,4 @@
-package config
+package domain
 
 // RuntimeEnv ゲームの実行環境
 type RuntimeEnv string

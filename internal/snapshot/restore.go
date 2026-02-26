@@ -6,16 +6,16 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/nonuplet/grimoire-archon/internal/config"
+	"github.com/nonuplet/grimoire-archon/internal/domain"
 	"github.com/nonuplet/grimoire-archon/internal/infra/cli"
-	"github.com/nonuplet/grimoire-archon/internal/infra/storage"
+	"github.com/nonuplet/grimoire-archon/internal/infra/filesystem"
 )
 
 // RestoreFromTmp は archiveDir で指定されたディレクトリ内のバックアップデータをリストアします。
-func RestoreFromTmp(archonCfg *config.ArchonConfig, gameCfg *config.GameConfig, archiveDir string) error {
+func RestoreFromTmp(archonCfg *domain.ArchonConfig, gameCfg *domain.GameConfig, archiveDir string) error {
 	// metadata.yamlのロード
 	metaYaml := filepath.Join(archiveDir, "metadata.yaml")
-	meta, err := LoadMetaData(metaYaml)
+	meta, err := domain.LoadMetaData(metaYaml)
 	if err != nil {
 		return fmt.Errorf("metadata.yamlのロードに失敗しました: %w", err)
 	}
@@ -82,22 +82,22 @@ func checkDifferentOs(archivedOs string) error {
 
 // getNotDefinedFiles はバックアップリストにないファイルを取得します。
 // archivedEntries のうち gameCfg.BackupTargets に定義されていないエントリを返します。
-func getNotDefinedFiles(meta *Metadata, gameCfg *config.GameConfig) []FileEntry {
+func getNotDefinedFiles(meta *domain.Metadata, gameCfg *domain.GameConfig) []domain.FileEntry {
 	archivedEntries := meta.Files
 	targets := gameCfg.BackupTargets
 
 	// BaseType ごとに対応するターゲットリストへマッピング
-	targetMap := map[BaseType][]string{
-		BaseTypeInstallDir:      getTargetList(targets, BaseTypeInstallDir),
-		BaseTypeUserHome:        getTargetList(targets, BaseTypeUserHome),
-		BaseTypeAppdataLocal:    getTargetList(targets, BaseTypeAppdataLocal),
-		BaseTypeAppdataLocalLow: getTargetList(targets, BaseTypeAppdataLocalLow),
-		BaseTypeAppdataRoaming:  getTargetList(targets, BaseTypeAppdataRoaming),
-		BaseTypeWinDocuments:    getTargetList(targets, BaseTypeWinDocuments),
-		BaseTypeAbsolute:        getTargetList(targets, BaseTypeAbsolute),
+	targetMap := map[domain.BaseType][]string{
+		domain.BaseTypeInstallDir:      getTargetList(targets, domain.BaseTypeInstallDir),
+		domain.BaseTypeUserHome:        getTargetList(targets, domain.BaseTypeUserHome),
+		domain.BaseTypeAppdataLocal:    getTargetList(targets, domain.BaseTypeAppdataLocal),
+		domain.BaseTypeAppdataLocalLow: getTargetList(targets, domain.BaseTypeAppdataLocalLow),
+		domain.BaseTypeAppdataRoaming:  getTargetList(targets, domain.BaseTypeAppdataRoaming),
+		domain.BaseTypeWinDocuments:    getTargetList(targets, domain.BaseTypeWinDocuments),
+		domain.BaseTypeAbsolute:        getTargetList(targets, domain.BaseTypeAbsolute),
 	}
 
-	var notDefined []FileEntry
+	var notDefined []domain.FileEntry
 	for _, entry := range archivedEntries {
 		list, ok := targetMap[entry.BaseType]
 		if !ok {
@@ -122,24 +122,24 @@ func getNotDefinedFiles(meta *Metadata, gameCfg *config.GameConfig) []FileEntry 
 }
 
 // getTargetList は BackupTargetConfig から指定した BaseType に対応するパスリストを返します。
-func getTargetList(targets *config.BackupTargetConfig, baseType BaseType) []string {
+func getTargetList(targets *domain.BackupTargetConfig, baseType domain.BaseType) []string {
 	if targets == nil {
 		return nil
 	}
 	switch baseType {
-	case BaseTypeInstallDir:
+	case domain.BaseTypeInstallDir:
 		return targets.InstallDir
-	case BaseTypeUserHome:
+	case domain.BaseTypeUserHome:
 		return targets.UserHome
-	case BaseTypeAppdataLocal:
+	case domain.BaseTypeAppdataLocal:
 		return targets.WinAppdataLocal
-	case BaseTypeAppdataLocalLow:
+	case domain.BaseTypeAppdataLocalLow:
 		return targets.WinAppdataLocalLow
-	case BaseTypeAppdataRoaming:
+	case domain.BaseTypeAppdataRoaming:
 		return targets.WinAppdataRoaming
-	case BaseTypeWinDocuments:
+	case domain.BaseTypeWinDocuments:
 		return targets.WinDocuments
-	case BaseTypeAbsolute:
+	case domain.BaseTypeAbsolute:
 		return targets.Absolute
 	default:
 		return nil
@@ -147,8 +147,8 @@ func getTargetList(targets *config.BackupTargetConfig, baseType BaseType) []stri
 }
 
 // getOverwriteFiles はバックアップ元のファイルリストから、上書き対象のファイルリストを返します。
-func getOverwriteFiles(archonCfg *config.ArchonConfig, gameCfg *config.GameConfig, meta *Metadata) []FileEntry {
-	var overwriteFiles []FileEntry
+func getOverwriteFiles(archonCfg *domain.ArchonConfig, gameCfg *domain.GameConfig, meta *domain.Metadata) []domain.FileEntry {
+	var overwriteFiles []domain.FileEntry
 	if meta == nil || len(meta.Files) == 0 {
 		return overwriteFiles
 	}
@@ -179,14 +179,14 @@ func getOverwriteFiles(archonCfg *config.ArchonConfig, gameCfg *config.GameConfi
 		}
 	}
 
-	resolvers := map[BaseType]func(string) (string, error){
-		BaseTypeInstallDir:      resolveInstallDir,
-		BaseTypeUserHome:        resolveUserHome,
-		BaseTypeAppdataLocal:    resolveWinDir("Local"),
-		BaseTypeAppdataLocalLow: resolveWinDir("LocalLow"),
-		BaseTypeAppdataRoaming:  resolveWinDir("Roaming"),
-		BaseTypeWinDocuments:    resolveWinDir("Documents"),
-		BaseTypeAbsolute:        resolveAbsolute,
+	resolvers := map[domain.BaseType]func(string) (string, error){
+		domain.BaseTypeInstallDir:      resolveInstallDir,
+		domain.BaseTypeUserHome:        resolveUserHome,
+		domain.BaseTypeAppdataLocal:    resolveWinDir("Local"),
+		domain.BaseTypeAppdataLocalLow: resolveWinDir("LocalLow"),
+		domain.BaseTypeAppdataRoaming:  resolveWinDir("Roaming"),
+		domain.BaseTypeWinDocuments:    resolveWinDir("Documents"),
+		domain.BaseTypeAbsolute:        resolveAbsolute,
 	}
 
 	for _, entry := range meta.Files {
@@ -199,7 +199,7 @@ func getOverwriteFiles(archonCfg *config.ArchonConfig, gameCfg *config.GameConfi
 			continue
 		}
 
-		if _, err := storage.GetInfo(dst); err == nil {
+		if _, err := filesystem.GetInfo(dst); err == nil {
 			overwriteFiles = append(overwriteFiles, entry)
 		} else if !os.IsNotExist(err) {
 			// 参照権限等の理由で確認できない場合も、上書き対象として扱う
@@ -210,7 +210,7 @@ func getOverwriteFiles(archonCfg *config.ArchonConfig, gameCfg *config.GameConfi
 	return overwriteFiles
 }
 
-func copyArchivedFiles(archonCfg *config.ArchonConfig, gameCfg *config.GameConfig, meta *Metadata, archiveDir string) error {
+func copyArchivedFiles(archonCfg *domain.ArchonConfig, gameCfg *domain.GameConfig, meta *domain.Metadata, archiveDir string) error {
 	// 各 BaseType のソースディレクトリ解決関数を定義
 	resolveInstallDir := func(rel string) (string, error) { // nolint:unparam // resolve関数をmapに入れるため、型を合わせる必要がある
 		return filepath.Join(gameCfg.InstallDir, rel), nil
@@ -237,14 +237,14 @@ func copyArchivedFiles(archonCfg *config.ArchonConfig, gameCfg *config.GameConfi
 		}
 	}
 
-	resolvers := map[BaseType]func(string) (string, error){
-		BaseTypeInstallDir:      resolveInstallDir,
-		BaseTypeUserHome:        resolveUserHome,
-		BaseTypeAppdataLocal:    resolveWinDir("Local"),
-		BaseTypeAppdataLocalLow: resolveWinDir("LocalLow"),
-		BaseTypeAppdataRoaming:  resolveWinDir("Roaming"),
-		BaseTypeWinDocuments:    resolveWinDir("Documents"),
-		BaseTypeAbsolute:        resolveAbsolute,
+	resolvers := map[domain.BaseType]func(string) (string, error){
+		domain.BaseTypeInstallDir:      resolveInstallDir,
+		domain.BaseTypeUserHome:        resolveUserHome,
+		domain.BaseTypeAppdataLocal:    resolveWinDir("Local"),
+		domain.BaseTypeAppdataLocalLow: resolveWinDir("LocalLow"),
+		domain.BaseTypeAppdataRoaming:  resolveWinDir("Roaming"),
+		domain.BaseTypeWinDocuments:    resolveWinDir("Documents"),
+		domain.BaseTypeAbsolute:        resolveAbsolute,
 	}
 
 	if len(meta.Files) == 0 {
@@ -262,7 +262,7 @@ func copyArchivedFiles(archonCfg *config.ArchonConfig, gameCfg *config.GameConfi
 			return fmt.Errorf("パス解決に失敗しました: %w", err)
 		}
 
-		if err := storage.CopyFileOrDir(src, dst, true); err != nil {
+		if err := filesystem.CopyFileOrDir(src, dst, true); err != nil {
 			return fmt.Errorf("ファイル/ディレクトリのコピーに失敗しました: %w", err)
 		}
 	}

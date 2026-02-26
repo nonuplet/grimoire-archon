@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nonuplet/grimoire-archon/internal/config"
+	"github.com/nonuplet/grimoire-archon/internal/domain"
 	"github.com/nonuplet/grimoire-archon/internal/infra/cli"
-	"github.com/nonuplet/grimoire-archon/internal/infra/storage"
+	"github.com/nonuplet/grimoire-archon/internal/infra/filesystem"
 )
 
 type backupCheckType int
@@ -30,7 +30,7 @@ func NewCleanUsecase() *CleanUsecase {
 }
 
 // Execute cleanの実行
-func (u *CleanUsecase) Execute(archonCfg *config.ArchonConfig, gameCfg *config.GameConfig) error {
+func (u *CleanUsecase) Execute(archonCfg *domain.ArchonConfig, gameCfg *domain.GameConfig) error {
 	// コンフィグのチェック
 	if err := u.checkPreClean(archonCfg, gameCfg); err != nil {
 		return err
@@ -77,7 +77,7 @@ func (u *CleanUsecase) Execute(archonCfg *config.ArchonConfig, gameCfg *config.G
 
 	// ユーザに確認
 	fmt.Printf("%s の削除処理を実行します...\n", gameCfg.Name)
-	err = storage.ClearDirectoryContents(gameCfg.InstallDir)
+	err = filesystem.ClearDirectoryContents(gameCfg.InstallDir)
 	if err != nil {
 		return fmt.Errorf("削除処理に失敗しました: %w", err)
 	}
@@ -86,7 +86,7 @@ func (u *CleanUsecase) Execute(archonCfg *config.ArchonConfig, gameCfg *config.G
 }
 
 // checkPreClean cleanの処理前チェック
-func (u *CleanUsecase) checkPreClean(archonCfg *config.ArchonConfig, gameCfg *config.GameConfig) error {
+func (u *CleanUsecase) checkPreClean(archonCfg *domain.ArchonConfig, gameCfg *domain.GameConfig) error {
 	if archonCfg == nil {
 		return fmt.Errorf("archonのコンフィグが定義されていません。")
 	}
@@ -98,11 +98,11 @@ func (u *CleanUsecase) checkPreClean(archonCfg *config.ArchonConfig, gameCfg *co
 }
 
 // checkBackup バックアップが存在するかチェック
-func (u *CleanUsecase) checkBackup(archonCfg *config.ArchonConfig, gameCfg *config.GameConfig) (backupCheckType, error) {
+func (u *CleanUsecase) checkBackup(archonCfg *domain.ArchonConfig, gameCfg *domain.GameConfig) (backupCheckType, error) {
 	backupPath := filepath.Join(archonCfg.BackupDir, gameCfg.Name)
 
 	// バックアップディレクトリをチェック
-	if _, err := storage.GetInfo(backupPath); os.IsNotExist(err) {
+	if _, err := filesystem.GetInfo(backupPath); os.IsNotExist(err) {
 		ok, err := askAndBackup(archonCfg, gameCfg, fmt.Sprintf("バックアップ先 '%s' が存在しません。バックアップしますか？", backupPath))
 		if err != nil {
 			return -1, fmt.Errorf("バックアップに失敗しました: %w", err)
@@ -151,7 +151,7 @@ func (u *CleanUsecase) checkBackup(archonCfg *config.ArchonConfig, gameCfg *conf
 }
 
 // askAndBackup バックアップの確認と実行
-func askAndBackup(archonCfg *config.ArchonConfig, gameCfg *config.GameConfig, msg string) (bool, error) {
+func askAndBackup(archonCfg *domain.ArchonConfig, gameCfg *domain.GameConfig, msg string) (bool, error) {
 	ok, err := cli.AskYesNo(os.Stdin, msg, true)
 	if err != nil {
 		return false, fmt.Errorf("確認に失敗しました: %w", err)
@@ -173,7 +173,7 @@ func askAndBackup(archonCfg *config.ArchonConfig, gameCfg *config.GameConfig, ms
 
 // checkBackupZip 指定されたディレクトリ内に、24時間以内に作成されたバックアップZIPが存在するか確認
 func checkBackupZip(backupPath, gameName string) (bool, error) {
-	files, err := storage.ReadDir(backupPath)
+	files, err := filesystem.ReadDir(backupPath)
 	if err != nil {
 		return false, fmt.Errorf("ディレクトリの読み込みに失敗しました: %w", err)
 	}

@@ -6,9 +6,9 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/nonuplet/grimoire-archon/internal/config"
+	"github.com/nonuplet/grimoire-archon/internal/domain"
 	"github.com/nonuplet/grimoire-archon/internal/infra/cli"
-	"github.com/nonuplet/grimoire-archon/internal/infra/storage"
+	"github.com/nonuplet/grimoire-archon/internal/infra/filesystem"
 )
 
 // CheckConfigUsecase コンフィグのチェックを行うユースケース
@@ -20,7 +20,7 @@ func NewCheckConfigUsecase() *CheckConfigUsecase {
 }
 
 // Execute コンフィグのチェックを実行する
-func (u *CheckConfigUsecase) Execute(cfg *config.Config) error {
+func (u *CheckConfigUsecase) Execute(cfg *domain.Config) error {
 	// Config のチェック
 	res := checkConfig(cfg)
 	if res != "" {
@@ -47,7 +47,7 @@ func (u *CheckConfigUsecase) Execute(cfg *config.Config) error {
 }
 
 // checkConfig 大本の Config 型のチェック
-func checkConfig(cfg *config.Config) string {
+func checkConfig(cfg *domain.Config) string {
 	baseMsg := "全体のエラー: "
 	var sb strings.Builder
 
@@ -68,7 +68,7 @@ func checkConfig(cfg *config.Config) string {
 }
 
 // checkArchonConfig ArchonConfigのチェック
-func checkArchonConfig(archonCfg *config.ArchonConfig) string {
+func checkArchonConfig(archonCfg *domain.ArchonConfig) string {
 	baseMsg := "archon: "
 	var sb strings.Builder
 
@@ -76,15 +76,15 @@ func checkArchonConfig(archonCfg *config.ArchonConfig) string {
 		cli.Writeln(&sb, baseMsg, "バックアップディレクトリが設定されていません。")
 		return sb.String()
 	}
-	if _, err := storage.GetInfo(archonCfg.BackupDir); err != nil {
+	if _, err := filesystem.GetInfo(archonCfg.BackupDir); err != nil {
 		cli.Writeln(&sb, baseMsg, "バックアップディレクトリ ", archonCfg.BackupDir, " は見つかりません。backup/restoreコマンドを実行すると、自動作成されます。")
 	}
 
-	if _, err := storage.GetInfo(archonCfg.AppdataDir); err != nil {
+	if _, err := filesystem.GetInfo(archonCfg.AppdataDir); err != nil {
 		cli.Writeln(&sb, baseMsg, "Appdataディレクトリ ", archonCfg.AppdataDir, " は指定されていますが、見つかりません。")
 	}
 
-	if _, err := storage.GetInfo(archonCfg.DocumentDir); err != nil {
+	if _, err := filesystem.GetInfo(archonCfg.DocumentDir); err != nil {
 		cli.Writeln(&sb, baseMsg, "Documentディレクトリ ", archonCfg.DocumentDir, " は指定されていますが、見つかりません。")
 	}
 
@@ -92,7 +92,7 @@ func checkArchonConfig(archonCfg *config.ArchonConfig) string {
 }
 
 // checkAllGameConfigs 全ゲームのコンフィグのチェック
-func checkAllGameConfigs(games map[string]*config.GameConfig) bool {
+func checkAllGameConfigs(games map[string]*domain.GameConfig) bool {
 	isError := false
 
 	for game, gameCfg := range games {
@@ -110,7 +110,7 @@ func checkAllGameConfigs(games map[string]*config.GameConfig) bool {
 }
 
 // checkGameConfig ゲーム単体のコンフィグチェック
-func checkGameConfig(game string, gameCfg *config.GameConfig) string {
+func checkGameConfig(game string, gameCfg *domain.GameConfig) string {
 	baseMsg := fmt.Sprintf("game: %s: ", game)
 	var sb strings.Builder
 
@@ -119,7 +119,7 @@ func checkGameConfig(game string, gameCfg *config.GameConfig) string {
 		cli.Writeln(&sb, baseMsg, "インストールディレクトリが設定されていません。")
 		return sb.String()
 	}
-	if _, err := storage.GetInfo(gameCfg.InstallDir); err != nil {
+	if _, err := filesystem.GetInfo(gameCfg.InstallDir); err != nil {
 		cli.Writeln(&sb, baseMsg, "インストールディレクトリ ", gameCfg.InstallDir, " は見つかりません。")
 		return sb.String()
 	}
@@ -127,7 +127,7 @@ func checkGameConfig(game string, gameCfg *config.GameConfig) string {
 	// Linux向けチェック
 	if runtime.GOOS == "linux" {
 		winBinary := gameCfg.Steam.Platform == "windows"
-		runNative := gameCfg.RuntimeEnv == "" || gameCfg.RuntimeEnv == config.RuntimeEnvNative
+		runNative := gameCfg.RuntimeEnv == "" || gameCfg.RuntimeEnv == domain.RuntimeEnvNative
 
 		if winBinary && runNative {
 			cli.Writeln(&sb, baseMsg, "LinuxでWindowsゲームを動かす場合、runtime_env に wine, proton のどちらかを指定してください。")

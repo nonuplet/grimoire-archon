@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nonuplet/grimoire-archon/internal/config"
-	"github.com/nonuplet/grimoire-archon/internal/infra/storage"
+	"github.com/nonuplet/grimoire-archon/internal/domain"
+	"github.com/nonuplet/grimoire-archon/internal/infra/filesystem"
 )
 
 // UpdateUsecase updateのユースケース
@@ -21,16 +21,16 @@ func NewUpdateUsecase(steamCmd SteamCmd) *UpdateUsecase {
 
 // Execute 更新処理を実行
 // TODO: 現在はSteam経由のダウンロード以外は対応していません Minecraft や Terraria 対応はそのうちやる
-func (u *UpdateUsecase) Execute(ctx context.Context, gameCfg *config.GameConfig) error {
+func (u *UpdateUsecase) Execute(ctx context.Context, gameCfg *domain.GameConfig) error {
 	// 処理前チェック
 	if err := u.checkPreUpdate(gameCfg); err != nil {
 		return err
 	}
 
 	// gameCfg.InstallDir がなかった場合ディレクトリを作成
-	if _, err := storage.GetInfo(gameCfg.InstallDir); os.IsNotExist(err) {
+	if _, err := filesystem.GetInfo(gameCfg.InstallDir); os.IsNotExist(err) {
 		fmt.Printf("インストール先のディレクトリ %s を作成しています...\n", gameCfg.InstallDir)
-		if dirErr := storage.MkdirAll(gameCfg.InstallDir, 0o750); dirErr != nil {
+		if dirErr := filesystem.MkdirAll(gameCfg.InstallDir, 0o750); dirErr != nil {
 			return fmt.Errorf("インストールディレクトリの作成に失敗しました: %w", dirErr)
 		}
 	} else if err != nil {
@@ -44,7 +44,7 @@ func (u *UpdateUsecase) Execute(ctx context.Context, gameCfg *config.GameConfig)
 }
 
 // checkPreUpdate アップデート実行前のチェック
-func (u *UpdateUsecase) checkPreUpdate(gameCfg *config.GameConfig) error {
+func (u *UpdateUsecase) checkPreUpdate(gameCfg *domain.GameConfig) error {
 	if err := u.steamCmd.Check(); err != nil {
 		return fmt.Errorf("アップデートに失敗しました: %w", err)
 	}
