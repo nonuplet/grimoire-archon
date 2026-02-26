@@ -18,10 +18,10 @@ var checkConfigCmd = &cobra.Command{
 `,
 	Args: cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		checkConfigUsecase := usecase.NewCheckConfigUsecase()
+		checkConfigUsecase := usecase.NewCheckConfigUsecase(&cfg, fs, cliUtil)
 
 		fmt.Println("コンフィグをチェックします...")
-		if err := checkConfigUsecase.Execute(&cfg); err != nil {
+		if err := checkConfigUsecase.Execute(); err != nil {
 			fmt.Println("エラーが見つかりました！")
 		} else {
 			fmt.Println("チェックが完了しました。エラーはありません。")

@@ -1,28 +1,55 @@
-package storage
+package filesystem
 
 import (
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"time"
 )
+
+// MkdirAll は指定されたパスにディレクトリを作成します。
+func (f *FileSystem) MkdirAll(path string, perm os.FileMode) error {
+	path, err := f.getAbsolutePath(path)
+	if err != nil {
+		return fmt.Errorf("ディレクトリ (%s) のパス取得に失敗しました: %w", path, err)
+	}
+
+	if err := os.MkdirAll(path, perm); err != nil {
+		return fmt.Errorf("ディレクトリ (%s) の作成に失敗しました: %w", path, err)
+	}
+
+	return nil
+}
+
+// WriteFile は指定されたパスにファイルを作成し、データを書き込みます。
+func (f *FileSystem) WriteFile(path string, data []byte, perm os.FileMode) error {
+	path, err := f.getAbsolutePath(path)
+	if err != nil {
+		return fmt.Errorf("ファイル (%s) のパス取得に失敗しました: %w", path, err)
+	}
+
+	if err := os.WriteFile(path, data, perm); err != nil {
+		return fmt.Errorf("ファイル (%s) の書き込みに失敗しました: %w", path, err)
+	}
+
+	return nil
+}
 
 // CopyFileOrDir ファイルまたはディレクトリをコピー。
 // overwrite が true の場合、コピー先が既に存在しても上書きする。
 // overwrite が false の場合、コピー先が既に存在するとエラーを返す。
-func CopyFileOrDir(src, dst string, overwrite bool) error {
+func (f *FileSystem) CopyFileOrDir(src, dst string, overwrite bool) error {
 	// 絶対パスに変換
-	src, err := GetAbsolutePath(src)
+	src, err := f.getAbsolutePath(src)
 	if err != nil {
 		return fmt.Errorf("コピー元パスの取得: %w", err)
 	}
-	dst, err = GetAbsolutePath(dst)
+	dst, err = f.getAbsolutePath(dst)
 	if err != nil {
 		return fmt.Errorf("コピー先パスの取得: %w", err)
 	}
 
-	info, err := GetInfo(src)
+	info, err := f.Stat(src)
 	if err != nil {
 		return fmt.Errorf("コピー元 %s が取得できません", src)
 	}
@@ -30,13 +57,13 @@ func CopyFileOrDir(src, dst string, overwrite bool) error {
 	if info.IsDir() {
 		// Directory
 		fmt.Printf("ディレクトリをコピー中: %s -> %s\n", src, dst)
-		if err := copyDir(src, dst, overwrite); err != nil {
+		if err := f.copyDir(src, dst, overwrite); err != nil {
 			return fmt.Errorf("ディレクトリのコピーに失敗しました: %w", err)
 		}
 	} else {
 		// File
 		fmt.Printf("ファイルをコピー中: %s -> %s\n", src, dst)
-		if err := copyFile(src, dst, overwrite); err != nil {
+		if err := f.copyFile(src, dst, overwrite); err != nil {
 			return fmt.Errorf("ファイルのコピーに失敗しました: %w", err)
 		}
 	}
@@ -45,7 +72,7 @@ func CopyFileOrDir(src, dst string, overwrite bool) error {
 
 // copyDir はディレクトリ src を dst へ再帰的にコピーします。
 // overwrite が false のとき、既存ファイルはスキップせずエラーを返します。
-func copyDir(src, dst string, overwrite bool) error {
+func (f *FileSystem) copyDir(src, dst string, overwrite bool) error {
 	entries, err := os.ReadDir(src)
 	if err != nil {
 		return fmt.Errorf("ディレクトリの読み込みに失敗しました (%s): %w", src, err)
@@ -60,11 +87,11 @@ func copyDir(src, dst string, overwrite bool) error {
 		dstPath := filepath.Join(dst, entry.Name())
 
 		if entry.IsDir() {
-			if err := copyDir(srcPath, dstPath, overwrite); err != nil {
+			if err := f.copyDir(srcPath, dstPath, overwrite); err != nil {
 				return err
 			}
 		} else {
-			if err := copyFile(srcPath, dstPath, overwrite); err != nil {
+			if err := f.copyFile(srcPath, dstPath, overwrite); err != nil {
 				return err
 			}
 		}
@@ -74,7 +101,7 @@ func copyDir(src, dst string, overwrite bool) error {
 
 // copyFile はファイル src を dst へコピーします。
 // overwrite が false のとき、dst が既に存在する場合はエラーを返します。
-func copyFile(src, dst string, overwrite bool) error {
+func (f *FileSystem) copyFile(src, dst string, overwrite bool) error {
 	if !overwrite {
 		if _, err := os.Stat(dst); err == nil {
 			return fmt.Errorf("コピー先がすでに存在します (%s)", dst)
@@ -111,9 +138,4 @@ func copyFile(src, dst string, overwrite bool) error {
 		return fmt.Errorf("ファイルのコピーに失敗しました (%s -> %s): %w", src, dst, err)
 	}
 	return nil
-}
-
-// GetTimestamp タイムスタンプの取得
-func GetTimestamp() string {
-	return time.Now().Format("20060102_150405")
 }

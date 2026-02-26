@@ -1,12 +1,8 @@
-package snapshot
+package domain
 
 import (
 	"fmt"
 	"time"
-
-	"github.com/goccy/go-yaml"
-
-	"github.com/nonuplet/grimoire-archon/internal/infra/storage"
 )
 
 // MetaVersion はメタデータスキーマのバージョンです。
@@ -36,6 +32,20 @@ const (
 	BaseTypeAbsolute BaseType = "absolute"
 )
 
+// SnapshotCondition スナップショットのチェック時の状態を表す
+type SnapshotCondition int
+
+const (
+	// SnapshotDirNotFound スナップショット用ディレクトリがない
+	SnapshotDirNotFound SnapshotCondition = iota
+	// SnapshotFileNotFound スナップショットファイルがない
+	SnapshotFileNotFound
+	// SnapshotFileTooOld スナップショットファイルが古い
+	SnapshotFileTooOld
+	// SnapshotHealthy スナップショットが正常
+	SnapshotHealthy
+)
+
 // Metadata はスナップショットzip内の matadata.yaml に書き出す構造体です。
 type Metadata struct {
 	Version     string      `yaml:"version"` // MetaVersion
@@ -46,42 +56,34 @@ type Metadata struct {
 	Files       []FileEntry `yaml:"files"`
 }
 
-// Save メタデータの保存
-func (m *Metadata) Save(path string) error {
-	data, err := yaml.Marshal(m)
-	if err != nil {
-		return fmt.Errorf("metadata.yamlのマーシャリングに失敗しました: %w", err)
-	}
-
-	if err := storage.WriteFile(path, data, 0o644); err != nil {
-		return fmt.Errorf("metadata.yamlの書き込みに失敗しました: %w", err)
-	}
-
-	return nil
-}
-
-// LoadMetaData 指定したパスからメタデータをロード
-func LoadMetaData(path string) (*Metadata, error) {
-	if _, err := storage.GetInfo(path); err != nil {
-		return nil, fmt.Errorf("metadata.yamlの取得に失敗しました: %w", err)
-	}
-
-	data, err := storage.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("metadata.yamlのリードに失敗しました: %w", err)
-	}
-
-	var meta Metadata
-	if err := yaml.Unmarshal(data, &meta); err != nil {
-		return nil, fmt.Errorf("metadata.yamlのデコードに失敗しました: %w", err)
-	}
-	return &meta, nil
-}
-
 // FileEntry はzipに含まれる1ファイル分のメタデータです。
 type FileEntry struct {
 	ModifiedAt   time.Time `yaml:"modified_at"`
 	ArchivePath  string    `yaml:"archive_path"`
 	BaseType     BaseType  `yaml:"type"`
 	OriginalPath string    `yaml:"original_path"`
+}
+
+// WinDirectoryType はWindows関連ディレクトリ(AppData, Document)の種類を表す型
+type WinDirectoryType string
+
+const (
+	// DirectoryLocal AppData/Local
+	DirectoryLocal WinDirectoryType = "Local"
+	// DirectoryLocalLow AppData/LocalLow
+	DirectoryLocalLow WinDirectoryType = "LocalLow"
+	// DirectoryRoaming AppData/Roaming
+	DirectoryRoaming WinDirectoryType = "Roaming"
+	// DirectoryDocuments Documents
+	DirectoryDocuments WinDirectoryType = "Documents"
+)
+
+// GetWinDirType Windows関連ディレクトリタイプが有効かどうかを検証
+func (d WinDirectoryType) GetWinDirType() error {
+	switch d {
+	case DirectoryLocal, DirectoryLocalLow, DirectoryRoaming, DirectoryDocuments:
+		return nil
+	default:
+		return fmt.Errorf("サポートされていないディレクトリタイプ %s が指定されました", d)
+	}
 }

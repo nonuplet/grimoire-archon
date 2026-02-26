@@ -8,13 +8,16 @@ import (
 	"github.com/goccy/go-yaml"
 	"github.com/spf13/cobra"
 
-	"github.com/nonuplet/grimoire-archon/internal/config"
-	"github.com/nonuplet/grimoire-archon/internal/infra/storage"
+	"github.com/nonuplet/grimoire-archon/internal/domain"
+	"github.com/nonuplet/grimoire-archon/internal/infra/cli"
+	"github.com/nonuplet/grimoire-archon/internal/infra/filesystem"
 )
 
 var (
 	cfgPath string
-	cfg     config.Config
+	cfg     domain.Config
+	fs      *filesystem.FileSystem
+	cliUtil *cli.Util
 )
 
 var rootCmd = &cobra.Command{
@@ -33,6 +36,8 @@ func Execute() {
 }
 
 func init() {
+	fs = filesystem.NewFileSystem()
+	cliUtil = cli.NewCliUtil()
 	cobra.OnInitialize(initConfig)
 
 	// -c, --config
@@ -49,7 +54,7 @@ func initConfig() {
 	}
 
 	// 読み込み処理
-	file, err := storage.ReadFile(targetPath)
+	file, err := fs.ReadFile(targetPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "コンフィグファイルの読み込みに失敗しました: %s\n", err)
 		os.Exit(1)
@@ -69,7 +74,7 @@ func initConfig() {
 func getConfigPath() string {
 	// 1. フラグで指定された場合
 	if cfgPath != "" {
-		if _, err := storage.GetInfo(cfgPath); err != nil {
+		if _, err := fs.Stat(cfgPath); err != nil {
 			fmt.Fprintf(os.Stderr, "指定されたコンフィグファイルが見つかりません: %s\n", cfgPath)
 			os.Exit(1)
 		}
@@ -78,7 +83,7 @@ func getConfigPath() string {
 
 	// 2. カレントディレクトリ
 	cwdPath := "./.archon.yaml"
-	if _, err := storage.GetInfo(cwdPath); err == nil {
+	if _, err := fs.Stat(cwdPath); err == nil {
 		return cwdPath
 	}
 
@@ -89,7 +94,7 @@ func getConfigPath() string {
 		os.Exit(1)
 	}
 	homePath := filepath.Join(home, "archon.yaml")
-	if _, err := storage.GetInfo(homePath); err == nil {
+	if _, err := fs.Stat(homePath); err == nil {
 		return homePath
 	}
 

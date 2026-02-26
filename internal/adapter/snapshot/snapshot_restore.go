@@ -6,33 +6,33 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/nonuplet/grimoire-archon/internal/config"
-	"github.com/nonuplet/grimoire-archon/internal/infra/cli"
-	"github.com/nonuplet/grimoire-archon/internal/infra/storage"
+	"github.com/goccy/go-yaml"
+
+	"github.com/nonuplet/grimoire-archon/internal/domain"
 )
 
 // RestoreFromTmp は archiveDir で指定されたディレクトリ内のバックアップデータをリストアします。
-func RestoreFromTmp(archonCfg *config.ArchonConfig, gameCfg *config.GameConfig, archiveDir string) error {
+func (snap Snapshot) RestoreFromTmp(archiveDir string) error {
 	// metadata.yamlのロード
 	metaYaml := filepath.Join(archiveDir, "metadata.yaml")
-	meta, err := LoadMetaData(metaYaml)
+	meta, err := snap.loadMetaData(metaYaml)
 	if err != nil {
 		return fmt.Errorf("metadata.yamlのロードに失敗しました: %w", err)
 	}
 
 	// OSの違いをチェック
-	if osErr := checkDifferentOs(meta.Os); osErr != nil {
+	if osErr := snap.checkDifferentOs(meta.Os); osErr != nil {
 		return osErr
 	}
 
 	// バックアップリストにないファイルをリストアップ
-	notDefined := getNotDefinedFiles(meta, gameCfg)
+	notDefined := snap.getNotDefinedFiles(meta)
 	if len(notDefined) > 0 {
 		fmt.Printf("コンフィグに設定した BackupTargets 以外のファイルが見つかりました。\n\n")
 		for _, file := range notDefined {
 			fmt.Printf("- %s: %s\n", file.BaseType, file.OriginalPath)
 		}
-		ok, err := cli.AskYesNo(os.Stdin, "\nリストアを続行してもよろしいですか？", true)
+		ok, err := snap.cli.AskYesNo(os.Stdin, "\nリストアを続行してもよろしいですか？", true)
 		if err != nil {
 			return fmt.Errorf("ユーザーの回答取得に失敗しました: %w", err)
 		}
@@ -42,13 +42,13 @@ func RestoreFromTmp(archonCfg *config.ArchonConfig, gameCfg *config.GameConfig, 
 	}
 
 	// 上書きがあるかチェック
-	overwriteFiles := getOverwriteFiles(archonCfg, gameCfg, meta)
+	overwriteFiles := snap.getOverwriteFiles(meta)
 	if len(overwriteFiles) > 0 {
 		fmt.Printf("以下のファイルは上書きされます。\n\n")
 		for _, file := range overwriteFiles {
 			fmt.Printf("- %s: %s\n", file.BaseType, file.OriginalPath)
 		}
-		ok, err := cli.AskYesNo(os.Stdin, "\n対象のファイルを上書きしてもよろしいですか？", true)
+		ok, err := snap.cli.AskYesNo(os.Stdin, "\n対象のファイルを上書きしてもよろしいですか？", true)
 		if err != nil {
 			return fmt.Errorf("ユーザーの回答取得に失敗しました: %w", err)
 		}
@@ -58,18 +58,36 @@ func RestoreFromTmp(archonCfg *config.ArchonConfig, gameCfg *config.GameConfig, 
 	}
 
 	fmt.Println("バックアップで復元しています...")
-	if err := copyArchivedFiles(archonCfg, gameCfg, meta, archiveDir); err != nil {
+	if err := snap.copyArchivedFiles(meta, archiveDir); err != nil {
 		return fmt.Errorf("復元に失敗しました: %w", err)
 	}
 
 	return nil
 }
 
-func checkDifferentOs(archivedOs string) error {
+// loadMetaData 指定したパスからメタデータをロード
+func (snap Snapshot) loadMetaData(path string) (*domain.Metadata, error) {
+	if _, err := snap.fs.Stat(path); err != nil {
+		return nil, fmt.Errorf("metadata.yamlの取得に失敗しました: %w", err)
+	}
+
+	data, err := snap.fs.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("metadata.yamlのリードに失敗しました: %w", err)
+	}
+
+	var meta domain.Metadata
+	if err := yaml.Unmarshal(data, &meta); err != nil {
+		return nil, fmt.Errorf("metadata.yamlのデコードに失敗しました: %w", err)
+	}
+	return &meta, nil
+}
+
+func (snap Snapshot) checkDifferentOs(archivedOs string) error {
 	currentOs := runtime.GOOS
 	if currentOs != archivedOs {
 		q := fmt.Sprintf("バックアップ元のOS(%s)と現在のOS(%s)が異なります。実行しますか?", archivedOs, currentOs)
-		ok, err := cli.AskYesNo(os.Stdin, q, false)
+		ok, err := snap.cli.AskYesNo(os.Stdin, q, false)
 		if err != nil {
 			return fmt.Errorf("ユーザーの回答取得に失敗しました: %w", err)
 		}
@@ -81,23 +99,23 @@ func checkDifferentOs(archivedOs string) error {
 }
 
 // getNotDefinedFiles はバックアップリストにないファイルを取得します。
-// archivedEntries のうち gameCfg.BackupTargets に定義されていないエントリを返します。
-func getNotDefinedFiles(meta *Metadata, gameCfg *config.GameConfig) []FileEntry {
+// archivedEntries のうち snap.gameCfg.BackupTargets に定義されていないエントリを返します。
+func (snap Snapshot) getNotDefinedFiles(meta *domain.Metadata) []domain.FileEntry {
 	archivedEntries := meta.Files
-	targets := gameCfg.BackupTargets
+	targets := snap.gameCfg.BackupTargets
 
 	// BaseType ごとに対応するターゲットリストへマッピング
-	targetMap := map[BaseType][]string{
-		BaseTypeInstallDir:      getTargetList(targets, BaseTypeInstallDir),
-		BaseTypeUserHome:        getTargetList(targets, BaseTypeUserHome),
-		BaseTypeAppdataLocal:    getTargetList(targets, BaseTypeAppdataLocal),
-		BaseTypeAppdataLocalLow: getTargetList(targets, BaseTypeAppdataLocalLow),
-		BaseTypeAppdataRoaming:  getTargetList(targets, BaseTypeAppdataRoaming),
-		BaseTypeWinDocuments:    getTargetList(targets, BaseTypeWinDocuments),
-		BaseTypeAbsolute:        getTargetList(targets, BaseTypeAbsolute),
+	targetMap := map[domain.BaseType][]string{
+		domain.BaseTypeInstallDir:      snap.getTargetList(targets, domain.BaseTypeInstallDir),
+		domain.BaseTypeUserHome:        snap.getTargetList(targets, domain.BaseTypeUserHome),
+		domain.BaseTypeAppdataLocal:    snap.getTargetList(targets, domain.BaseTypeAppdataLocal),
+		domain.BaseTypeAppdataLocalLow: snap.getTargetList(targets, domain.BaseTypeAppdataLocalLow),
+		domain.BaseTypeAppdataRoaming:  snap.getTargetList(targets, domain.BaseTypeAppdataRoaming),
+		domain.BaseTypeWinDocuments:    snap.getTargetList(targets, domain.BaseTypeWinDocuments),
+		domain.BaseTypeAbsolute:        snap.getTargetList(targets, domain.BaseTypeAbsolute),
 	}
 
-	var notDefined []FileEntry
+	var notDefined []domain.FileEntry
 	for _, entry := range archivedEntries {
 		list, ok := targetMap[entry.BaseType]
 		if !ok {
@@ -122,24 +140,24 @@ func getNotDefinedFiles(meta *Metadata, gameCfg *config.GameConfig) []FileEntry 
 }
 
 // getTargetList は BackupTargetConfig から指定した BaseType に対応するパスリストを返します。
-func getTargetList(targets *config.BackupTargetConfig, baseType BaseType) []string {
+func (snap Snapshot) getTargetList(targets *domain.BackupTargetConfig, baseType domain.BaseType) []string {
 	if targets == nil {
 		return nil
 	}
 	switch baseType {
-	case BaseTypeInstallDir:
+	case domain.BaseTypeInstallDir:
 		return targets.InstallDir
-	case BaseTypeUserHome:
+	case domain.BaseTypeUserHome:
 		return targets.UserHome
-	case BaseTypeAppdataLocal:
+	case domain.BaseTypeAppdataLocal:
 		return targets.WinAppdataLocal
-	case BaseTypeAppdataLocalLow:
+	case domain.BaseTypeAppdataLocalLow:
 		return targets.WinAppdataLocalLow
-	case BaseTypeAppdataRoaming:
+	case domain.BaseTypeAppdataRoaming:
 		return targets.WinAppdataRoaming
-	case BaseTypeWinDocuments:
+	case domain.BaseTypeWinDocuments:
 		return targets.WinDocuments
-	case BaseTypeAbsolute:
+	case domain.BaseTypeAbsolute:
 		return targets.Absolute
 	default:
 		return nil
@@ -147,15 +165,15 @@ func getTargetList(targets *config.BackupTargetConfig, baseType BaseType) []stri
 }
 
 // getOverwriteFiles はバックアップ元のファイルリストから、上書き対象のファイルリストを返します。
-func getOverwriteFiles(archonCfg *config.ArchonConfig, gameCfg *config.GameConfig, meta *Metadata) []FileEntry {
-	var overwriteFiles []FileEntry
+func (snap Snapshot) getOverwriteFiles(meta *domain.Metadata) []domain.FileEntry {
+	var overwriteFiles []domain.FileEntry
 	if meta == nil || len(meta.Files) == 0 {
 		return overwriteFiles
 	}
 
 	// 各 BaseType のソースディレクトリ解決関数を定義
 	resolveInstallDir := func(rel string) (string, error) { // nolint:unparam // resolve関数をmapに入れるため、型を合わせる必要がある
-		return filepath.Join(gameCfg.InstallDir, rel), nil
+		return filepath.Join(snap.gameCfg.InstallDir, rel), nil
 	}
 	resolveUserHome := func(rel string) (string, error) {
 		home, err := os.UserHomeDir()
@@ -171,7 +189,7 @@ func getOverwriteFiles(archonCfg *config.ArchonConfig, gameCfg *config.GameConfi
 	// Windows関連ディレクトリ(AppData, Document)解決
 	resolveWinDir := func(subDir string) func(string) (string, error) {
 		return func(rel string) (string, error) {
-			base, err := resolveWinAppdata(archonCfg, gameCfg, subDir)
+			base, err := snap.resolveWinAppdata(subDir)
 			if err != nil {
 				return "", err
 			}
@@ -179,14 +197,14 @@ func getOverwriteFiles(archonCfg *config.ArchonConfig, gameCfg *config.GameConfi
 		}
 	}
 
-	resolvers := map[BaseType]func(string) (string, error){
-		BaseTypeInstallDir:      resolveInstallDir,
-		BaseTypeUserHome:        resolveUserHome,
-		BaseTypeAppdataLocal:    resolveWinDir("Local"),
-		BaseTypeAppdataLocalLow: resolveWinDir("LocalLow"),
-		BaseTypeAppdataRoaming:  resolveWinDir("Roaming"),
-		BaseTypeWinDocuments:    resolveWinDir("Documents"),
-		BaseTypeAbsolute:        resolveAbsolute,
+	resolvers := map[domain.BaseType]func(string) (string, error){
+		domain.BaseTypeInstallDir:      resolveInstallDir,
+		domain.BaseTypeUserHome:        resolveUserHome,
+		domain.BaseTypeAppdataLocal:    resolveWinDir("Local"),
+		domain.BaseTypeAppdataLocalLow: resolveWinDir("LocalLow"),
+		domain.BaseTypeAppdataRoaming:  resolveWinDir("Roaming"),
+		domain.BaseTypeWinDocuments:    resolveWinDir("Documents"),
+		domain.BaseTypeAbsolute:        resolveAbsolute,
 	}
 
 	for _, entry := range meta.Files {
@@ -199,7 +217,7 @@ func getOverwriteFiles(archonCfg *config.ArchonConfig, gameCfg *config.GameConfi
 			continue
 		}
 
-		if _, err := storage.GetInfo(dst); err == nil {
+		if _, err := snap.fs.Stat(dst); err == nil {
 			overwriteFiles = append(overwriteFiles, entry)
 		} else if !os.IsNotExist(err) {
 			// 参照権限等の理由で確認できない場合も、上書き対象として扱う
@@ -210,10 +228,10 @@ func getOverwriteFiles(archonCfg *config.ArchonConfig, gameCfg *config.GameConfi
 	return overwriteFiles
 }
 
-func copyArchivedFiles(archonCfg *config.ArchonConfig, gameCfg *config.GameConfig, meta *Metadata, archiveDir string) error {
+func (snap Snapshot) copyArchivedFiles(meta *domain.Metadata, archiveDir string) error {
 	// 各 BaseType のソースディレクトリ解決関数を定義
 	resolveInstallDir := func(rel string) (string, error) { // nolint:unparam // resolve関数をmapに入れるため、型を合わせる必要がある
-		return filepath.Join(gameCfg.InstallDir, rel), nil
+		return filepath.Join(snap.gameCfg.InstallDir, rel), nil
 	}
 	resolveUserHome := func(rel string) (string, error) {
 		home, err := os.UserHomeDir()
@@ -229,7 +247,7 @@ func copyArchivedFiles(archonCfg *config.ArchonConfig, gameCfg *config.GameConfi
 	// Windows関連ディレクトリ(AppData, Document)解決
 	resolveWinDir := func(subDir string) func(string) (string, error) {
 		return func(rel string) (string, error) {
-			base, err := resolveWinAppdata(archonCfg, gameCfg, subDir)
+			base, err := snap.resolveWinAppdata(subDir)
 			if err != nil {
 				return "", err
 			}
@@ -237,14 +255,14 @@ func copyArchivedFiles(archonCfg *config.ArchonConfig, gameCfg *config.GameConfi
 		}
 	}
 
-	resolvers := map[BaseType]func(string) (string, error){
-		BaseTypeInstallDir:      resolveInstallDir,
-		BaseTypeUserHome:        resolveUserHome,
-		BaseTypeAppdataLocal:    resolveWinDir("Local"),
-		BaseTypeAppdataLocalLow: resolveWinDir("LocalLow"),
-		BaseTypeAppdataRoaming:  resolveWinDir("Roaming"),
-		BaseTypeWinDocuments:    resolveWinDir("Documents"),
-		BaseTypeAbsolute:        resolveAbsolute,
+	resolvers := map[domain.BaseType]func(string) (string, error){
+		domain.BaseTypeInstallDir:      resolveInstallDir,
+		domain.BaseTypeUserHome:        resolveUserHome,
+		domain.BaseTypeAppdataLocal:    resolveWinDir("Local"),
+		domain.BaseTypeAppdataLocalLow: resolveWinDir("LocalLow"),
+		domain.BaseTypeAppdataRoaming:  resolveWinDir("Roaming"),
+		domain.BaseTypeWinDocuments:    resolveWinDir("Documents"),
+		domain.BaseTypeAbsolute:        resolveAbsolute,
 	}
 
 	if len(meta.Files) == 0 {
@@ -262,7 +280,7 @@ func copyArchivedFiles(archonCfg *config.ArchonConfig, gameCfg *config.GameConfi
 			return fmt.Errorf("パス解決に失敗しました: %w", err)
 		}
 
-		if err := storage.CopyFileOrDir(src, dst, true); err != nil {
+		if err := snap.fs.CopyFileOrDir(src, dst, true); err != nil {
 			return fmt.Errorf("ファイル/ディレクトリのコピーに失敗しました: %w", err)
 		}
 	}

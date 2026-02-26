@@ -18,17 +18,19 @@ var updateCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := args[0]
-		ctx := context.Background()
-		updateUsecase := usecase.NewUpdateUsecase(&steamcmd.SteamCmd{})
 
 		game, ok := cfg.Games[name]
 		if !ok {
 			return fmt.Errorf("%s は設定されていません。コンフィグを確認してください", name)
 		}
 
+		ctx := context.Background()
+		steam := steamcmd.NewSteamCmd()
+		updateUsecase := usecase.NewUpdateUsecase(game, steam, fs)
+
 		fmt.Printf("%s を更新中...\n", name)
 
-		if err := updateUsecase.Execute(ctx, game); err != nil {
+		if err := updateUsecase.Execute(ctx); err != nil {
 			return fmt.Errorf("%s のアップデートに失敗しました : %w", name, err)
 		}
 

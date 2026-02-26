@@ -7,8 +7,16 @@ import (
 	"strings"
 )
 
+// Util CLI操作のユーティリティ
+type Util struct{}
+
+// NewCliUtil CliUtilのインスタンスを生成する
+func NewCliUtil() *Util {
+	return &Util{}
+}
+
 // AskYesNo ユーザーにYes/Noの選択を促す
-func AskYesNo(r io.Reader, question string, defaultYes bool) (bool, error) {
+func (c *Util) AskYesNo(r io.Reader, question string, defaultYes bool) (bool, error) {
 	reader := bufio.NewReader(r)
 	if defaultYes {
 		fmt.Printf("%s [Y/n]: ", question)
@@ -29,7 +37,7 @@ func AskYesNo(r io.Reader, question string, defaultYes bool) (bool, error) {
 }
 
 // Writeln 文字列を結合して最後に改行する
-func Writeln(builder *strings.Builder, strs ...string) {
+func (c *Util) Writeln(builder *strings.Builder, strs ...string) {
 	for _, str := range strs {
 		builder.WriteString(str)
 	}
