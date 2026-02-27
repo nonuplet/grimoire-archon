@@ -5,6 +5,7 @@ go 1.26.0
 require (
 	github.com/goccy/go-yaml v1.19.2
 	github.com/spf13/cobra v1.10.2
+	golang.org/x/sys v0.41.0
 )
 
 require (
