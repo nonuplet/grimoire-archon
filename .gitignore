@@ -85,6 +85,11 @@ Network Trash Folder
 Temporary Items
 .apdisk
 
+### moon
+
+.moon/cache
+.moon/docker
+
 ### Project Settings
 
 # Build
