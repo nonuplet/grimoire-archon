@@ -85,11 +85,15 @@ Network Trash Folder
 Temporary Items
 .apdisk
 
+### moon
+
+.moon/cache
+.moon/docker
+
 ### Project Settings
 
 # Build
-archon
-archon.exe
+bin/
 
 # Config file
 .archon.yaml

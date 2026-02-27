@@ -1,0 +1,29 @@
+$schema: './cache/schemas/workspace.json'
+
+# Configures all projects within the workspace to create a project graph.
+# Accepts a list of globs, a mapping of projects to relative file paths,
+# or both values.
+projects:
+  app: "."
+
+defaultProject: app
+
+# Configures the version control system (VCS). Also known as
+# source code management (SCM).
+vcs:
+  client: git
+  defaultBranch: "main"
+  hookFormat: native
+
+  # The upstream version control provider, where the repository
+  # source code is stored.
+  # @since 1.8.0
+  # @values "bitbucket" | "github" | "gitlab" | "other"
+  provider: "github"
+
+pipeline:
+  inheritColorsForPipedTasks: true
+  autoCleanCache: true
+
+hasher:
+  walkStrategy: vcs
