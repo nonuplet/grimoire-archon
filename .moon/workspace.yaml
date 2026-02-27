@@ -1,4 +1,4 @@
-# $schema: './cache/schemas/workspace.json'
+$schema: './cache/schemas/workspace.json'
 
 # Configures all projects within the workspace to create a project graph.
 # Accepts a list of globs, a mapping of projects to relative file paths,

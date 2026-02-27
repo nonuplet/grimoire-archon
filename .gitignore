@@ -93,8 +93,7 @@ Temporary Items
 ### Project Settings
 
 # Build
-archon
-archon.exe
+bin/
 
 # Config file
 .archon.yaml

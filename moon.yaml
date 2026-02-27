@@ -1,0 +1,57 @@
+$schema: "../.moon/cache/schemas/project.json"
+
+language: go
+
+fileGroups:
+  sources:
+    - "cmd/**/*.go"
+    - "internal/**/*.go"
+    - "main.go"
+    - "go.mod"
+    - "go.sum"
+  lintConfig:
+    - ".golangci.yaml"
+
+tasks:
+  build:
+    description: "開発用ビルド (completion確認用)"
+    command: "go build -o bin/archon$(go env GOEXE) main.go"
+    inputs:
+      - "@group(sources)"
+    outputs:
+      - "bin/"
+    options:
+      outputStyle: stream
+
+  run:
+    command: "go run main.go"
+    options:
+      cache: false
+      outputStyle: stream
+
+  format:
+    command: "golangci-lint fmt"
+    inputs:
+      - "@group(sources)"
+      - "@group(lintConfig)"
+    options:
+      cache: false
+      outputStyle: stream
+
+  lint:
+    command: "golangci-lint run --color always"
+    inputs:
+      - "@group(sources)"
+      - "@group(lintConfig)"
+    options:
+      cache: false
+      outputStyle: stream
+
+  lint-fix:
+    command: "golangci-lint run --fix --color always"
+    inputs:
+      - "@group(sources)"
+      - "@group(lintConfig)"
+    options:
+      cache: false
+      outputStyle: stream
