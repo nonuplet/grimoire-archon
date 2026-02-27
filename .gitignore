@@ -89,6 +89,7 @@ Temporary Items
 
 # Build
 archon
+archon.exe
 
 # Config file
 .archon.yaml
